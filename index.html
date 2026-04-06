@@ -1,0 +1,1235 @@
+<!--
+  Memory Lab — GitHub Pages deployment
+  1. Push this repo to GitHub (include index.html at repo root or in /docs).
+  2. Repository Settings → Pages → Build and deployment → Source: Deploy from a branch.
+  3. Choose main (or master) and / (root) or /docs folder, then Save.
+  4. The site URL will be https://<username>.github.io/<repo>/ (or custom domain).
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Memory Lab</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #0f1114;
+      --surface: #171a20;
+      --border: #2a3038;
+      --text: #e8eaed;
+      --muted: #9aa0a6;
+      --accent: #7c9cff;
+      --accent-dim: #5a7ae0;
+      --success: #6bcf7f;
+      --danger: #e57373;
+      --radius: 10px;
+      --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; font-family: var(--font); background: var(--bg); color: var(--text); }
+    body { line-height: 1.45; padding: 0 1rem 2rem; }
+    h1 { font-weight: 600; letter-spacing: -0.02em; margin: 0 0 0.5rem; font-size: 1.75rem; }
+    h2 { font-size: 1.15rem; margin: 0 0 1rem; font-weight: 600; }
+    .screen { display: none; max-width: 42rem; margin: 0 auto; padding-top: 1.5rem; }
+    .screen.active { display: block; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.35rem;
+      margin-bottom: 1rem;
+    }
+    .muted { color: var(--muted); font-size: 0.9rem; }
+    button, .btn {
+      font: inherit;
+      cursor: pointer;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 0.65rem 1rem;
+      margin: 0.35rem 0.35rem 0.35rem 0;
+    }
+    button.primary, .btn.primary {
+      background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+      border-color: transparent;
+      color: #0a0c10;
+      font-weight: 600;
+    }
+    button:disabled, .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    label.block { display: block; margin: 0.75rem 0 0.35rem; font-weight: 500; }
+    input[type="text"], input[type="number"], textarea {
+      width: 100%;
+      max-width: 100%;
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #0c0e12;
+      color: var(--text);
+      font: inherit;
+    }
+    textarea { min-height: 5rem; resize: vertical; }
+    input[type="range"] { width: 100%; max-width: 22rem; }
+    .radio-row { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.35rem; }
+    .radio-row label { font-weight: normal; cursor: pointer; }
+    .progress-bar {
+      display: flex;
+      gap: 0.35rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .progress-bar span {
+      padding: 0.25rem 0.55rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      background: #22262e;
+      color: var(--muted);
+    }
+    .progress-bar span.on { background: #2a3350; color: var(--accent); }
+    .timer { font-variant-numeric: tabular-nums; font-size: 1.5rem; font-weight: 600; color: var(--accent); margin: 0.5rem 0; }
+    .word-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      justify-content: center;
+      min-height: 8rem;
+      align-content: flex-start;
+    }
+    .word-cloud span {
+      padding: 0.35rem 0.55rem;
+      background: #22262e;
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+    .grid-5 {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      max-width: 280px;
+      margin: 1rem auto;
+      touch-action: manipulation;
+    }
+    .grid-5 button.cell {
+      aspect-ratio: 1;
+      margin: 0;
+      padding: 0;
+      font-size: 0.75rem;
+      border-radius: 6px;
+    }
+    .grid-5 button.cell.hl { background: #3d4f7a; border-color: var(--accent); }
+    .grid-5 button.cell.sel { background: #2d5a3d; border-color: var(--success); }
+    .pair-list { font-size: 0.95rem; line-height: 1.7; columns: 2; column-gap: 1.5rem; }
+    @media (max-width: 520px) { .pair-list { columns: 1; } }
+    .dashboard-wrap { max-width: 56rem; margin: 0 auto; }
+    .charts-grid { display: grid; gap: 1rem; }
+    @media (min-width: 700px) { .charts-grid { grid-template-columns: 1fr 1fr; } }
+    .chart-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; height: 260px; position: relative; }
+    .chart-box.wide { grid-column: 1 / -1; height: 300px; }
+    .chart-box h3 { margin: 0 0 0.5rem; font-size: 0.95rem; font-weight: 600; color: var(--muted); }
+    .legend-apps { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.75rem 0; font-size: 0.8rem; }
+    .legend-apps span { display: inline-flex; align-items: center; gap: 0.35rem; }
+    .dot { width: 10px; height: 10px; border-radius: 2px; }
+    table.confound { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    table.confound th, table.confound td { border: 1px solid var(--border); padding: 0.45rem 0.55rem; text-align: left; }
+    table.confound th { background: #1a1d24; }
+    .error-msg { color: var(--danger); margin-top: 0.5rem; font-size: 0.9rem; }
+    .summary-line { margin: 0.35rem 0; }
+    .interstitial { text-align: center; padding: 2rem 0; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <input type="file" id="file-load" accept=".json,application/json" class="hidden" />
+  <input type="file" id="file-friend" accept=".json,application/json" class="hidden" />
+
+  <!-- Landing -->
+  <section id="screen-landing" class="screen active">
+    <h1>Memory Lab</h1>
+    <div class="card">
+      <p class="muted" id="landing-note">No progress file loaded. Start a new session; you can download your progress at the end.</p>
+      <div id="landing-summary" class="hidden">
+        <p class="summary-line"><strong id="sum-user">—</strong></p>
+        <p class="summary-line muted">Sessions completed: <span id="sum-count">0</span></p>
+        <p class="summary-line muted">Last session: <span id="sum-last">—</span></p>
+      </div>
+      <div style="margin-top: 1rem;">
+        <button type="button" class="primary" id="btn-new-session">New Session</button>
+        <button type="button" id="btn-load" disabled>Load Progress File</button>
+      </div>
+      <p class="muted" style="margin-top: 1rem; font-size: 0.85rem;">After your first visit, save your JSON and use Load Progress File next time.</p>
+    </div>
+    <div class="card hidden" id="dash-card">
+      <h2>Progress &amp; comparison</h2>
+      <button type="button" class="primary" id="btn-dashboard">Open dashboard</button>
+      <button type="button" id="btn-compare">Compare with Friend</button>
+      <p class="muted" id="friend-status" style="margin-top: 0.5rem;">No friend file loaded.</p>
+    </div>
+  </section>
+
+  <!-- Questionnaire -->
+  <section id="screen-form" class="screen">
+    <h1>Pre-session</h1>
+    <div class="card">
+      <label class="block">Who are you?</label>
+      <div class="radio-row" id="q-user">
+        <label><input type="radio" name="q_user" value="Joseph" /> Joseph</label>
+        <label><input type="radio" name="q_user" value="Jonathan" /> Jonathan</label>
+      </div>
+      <label class="block">Which memory app are you currently using?</label>
+      <div class="radio-row" id="q-app">
+        <label><input type="radio" name="q_app" value="None/Control" /> None / Control</label>
+        <label><input type="radio" name="q_app" value="memoryOS" /> memoryOS</label>
+        <label><input type="radio" name="q_app" value="Luminosity" /> Luminosity</label>
+        <label><input type="radio" name="q_app" value="Chess" /> Chess</label>
+      </div>
+      <label class="block">How was your sleep this week? <span id="sleep-val" class="muted">5</span></label>
+      <input type="range" id="q-sleep" min="1" max="10" value="5" />
+      <p class="muted" style="margin:0;font-size:0.8rem;">Terrible → Excellent</p>
+      <label class="block">How many times did you work out this week?</label>
+      <input type="number" id="q-workouts" min="0" max="7" step="1" value="0" />
+      <label class="block">How well did you eat this week? <span id="diet-val" class="muted">5</span></label>
+      <input type="range" id="q-diet" min="1" max="10" value="5" />
+      <p class="muted" style="margin:0;font-size:0.8rem;">Very poorly → Very well</p>
+      <label class="block">Any notes? (optional)</label>
+      <textarea id="q-notes" placeholder="Short notes…"></textarea>
+      <p class="error-msg hidden" id="form-error"></p>
+      <div style="margin-top: 1rem;">
+        <button type="button" class="primary" id="btn-start-tests">Start tests</button>
+        <button type="button" id="btn-form-back">Back</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interstitial -->
+  <section id="screen-ready" class="screen">
+    <div class="interstitial card">
+      <div class="progress-bar" id="ready-progress"></div>
+      <h2 id="ready-title">Ready?</h2>
+      <p class="muted" id="ready-sub">Next: Free Recall</p>
+      <button type="button" class="primary" id="btn-ready-continue">Continue</button>
+    </div>
+  </section>
+
+  <!-- Test 1: Free recall study -->
+  <section id="screen-fr-study" class="screen">
+    <h1>Free recall — Study</h1>
+    <div class="progress-bar" id="fr-prog"></div>
+    <p class="muted">Memorize these 20 words. You have 60 seconds.</p>
+    <div class="timer" id="fr-study-timer">60</div>
+    <div class="word-cloud" id="fr-words"></div>
+  </section>
+
+  <!-- Test 1: Free recall recall -->
+  <section id="screen-fr-recall" class="screen">
+    <h1>Free recall — Recall</h1>
+    <div class="progress-bar" id="fr-prog2"></div>
+    <p class="muted">Type all words you remember, separated by commas or spaces.</p>
+    <div class="timer" id="fr-recall-timer">90</div>
+    <textarea id="fr-input" placeholder="word1, word2 word3…"></textarea>
+    <button type="button" class="primary" id="fr-submit">Submit (or wait for timer)</button>
+  </section>
+
+  <!-- Test 2: Paired study -->
+  <section id="screen-pa-study" class="screen">
+    <h1>Paired associates — Study</h1>
+    <div class="progress-bar" id="pa-prog"></div>
+    <p class="muted">Study these pairs for 60 seconds.</p>
+    <div class="timer" id="pa-study-timer">60</div>
+    <div class="pair-list" id="pa-pairs"></div>
+  </section>
+
+  <!-- Test 2: Paired test -->
+  <section id="screen-pa-test" class="screen">
+    <h1>Paired associates — Test</h1>
+    <div class="progress-bar" id="pa-prog2"></div>
+    <p id="pa-cue" class="muted"></p>
+    <input type="text" id="pa-input" autocomplete="off" placeholder="Second word" />
+    <button type="button" class="primary" id="pa-submit">Submit</button>
+  </section>
+
+  <!-- Test 3: Digit span -->
+  <section id="screen-ds" class="screen">
+    <h1>Digit span</h1>
+    <div class="progress-bar" id="ds-prog"></div>
+    <p class="muted" id="ds-msg">Watch the digits.</p>
+    <div class="timer hidden" id="ds-digit-show"></div>
+    <input type="text" id="ds-input" class="hidden" inputmode="numeric" autocomplete="off" placeholder="Type the sequence" />
+    <button type="button" class="primary hidden" id="ds-submit">Submit</button>
+  </section>
+
+  <!-- Test 4: Spatial -->
+  <section id="screen-sp-study" class="screen">
+    <h1>Spatial grid — Study</h1>
+    <div class="progress-bar" id="sp-prog"></div>
+    <p class="muted">Remember the 8 highlighted cells. You have 30 seconds.</p>
+    <div class="timer" id="sp-study-timer">30</div>
+    <div class="grid-5" id="sp-grid-study"></div>
+  </section>
+
+  <section id="screen-sp-recall" class="screen">
+    <h1>Spatial grid — Recall</h1>
+    <div class="progress-bar" id="sp-prog2"></div>
+    <p class="muted">Click exactly 8 cells to match the pattern. Timer starts now.</p>
+    <div class="timer" id="sp-recall-timer">0</div>
+    <div class="grid-5" id="sp-grid-recall"></div>
+    <button type="button" class="primary" id="sp-done" disabled>Done</button>
+  </section>
+
+  <!-- Done / download -->
+  <section id="screen-done" class="screen">
+    <h1>Session complete</h1>
+    <div class="card">
+      <p class="muted">Your updated progress file should download automatically. Keep it safe for your next visit.</p>
+      <button type="button" class="primary" id="btn-download-again">Download again</button>
+      <button type="button" id="btn-done-home">Back to home</button>
+    </div>
+  </section>
+
+  <!-- Dashboard -->
+  <section id="screen-dashboard" class="screen dashboard-wrap">
+    <h1>Progress dashboard</h1>
+    <div class="legend-apps" id="app-legend"></div>
+    <div class="charts-grid">
+      <div class="chart-box wide"><h3>Composite (normalized)</h3><canvas id="chart-composite"></canvas></div>
+      <div class="chart-box"><h3>Free recall</h3><canvas id="chart-fr"></canvas></div>
+      <div class="chart-box"><h3>Paired associates</h3><canvas id="chart-pa"></canvas></div>
+      <div class="chart-box"><h3>Digit span</h3><canvas id="chart-ds"></canvas></div>
+      <div class="chart-box"><h3>Spatial grid</h3><canvas id="chart-sp"></canvas></div>
+    </div>
+    <div class="card" style="margin-top:1rem;">
+      <h2 style="margin-top:0;">Confound summary</h2>
+      <p class="muted" style="margin-top:0;">Average sleep, workouts, and diet by app period (per user).</p>
+      <div style="overflow-x:auto;">
+        <table class="confound" id="confound-table">
+          <thead><tr><th>User</th><th>App period</th><th>Sessions</th><th>Avg sleep</th><th>Avg workouts</th><th>Avg diet</th></tr></thead>
+          <tbody id="confound-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <button type="button" id="btn-dash-back">Back</button>
+  </section>
+
+  <script>
+(function () {
+  'use strict';
+
+  const WORD_POOL = [
+    'time','year','people','way','day','man','thing','woman','life','child','world','school','state','family','student','group','country','problem','hand','part',
+    'place','case','week','company','system','program','question','work','government','number','night','point','home','water','room','mother','area','money','story','fact',
+    'month','lot','right','study','book','eye','job','word','business','issue','side','kind','head','house','service','friend','father','hour','game','line','end',
+    'member','law','car','city','community','name','president','team','minute','idea','kid','body','information','back','parent','face','others','level','office','door',
+    'health','person','art','war','history','party','result','change','morning','reason','research','girl','guy','moment','air','teacher','force','education','foot','boy',
+    'age','policy','music','process','food','moment','thought','market','nation','plan','college','interest','death','experience','effect','effort','floor','station','fish','future',
+    'action','model','age','paper','space','earth','form','animal','industry','image','phone','data','picture','practice','piece','land','product','doctor','wall','patient',
+    'worker','news','movie','north','song','tree','field','boat','surface','bank','color','shape','stone','village','garden','bridge','stone','ship','border','wood',
+    'camera','plane','ticket','gift','price','size','choice','view','window','village','gas','weather','flower','forest','hill','island','lake','metal','noise','ocean',
+    'path','rain','river','road','sand','sky','snow','star','street','sun','train','valley','voice','wave','wind','yard','angle','arm','ball','bed','bell','bird','blade',
+    'bone','branch','bread','brick','candle','chain','cheese','chest','clock','cloud','coat','coin','crown','diamond','dish','dream','drum','dust','egg','engine','feather',
+    'fence','finger','flame','flesh','flower','fog','fruit','glass','gold','grass','hammer','handle','hat','heart','horn','horse','house','ice','ink','iron','key','knife',
+    'lamp','leaf','leather','letter','library','light','lion','lock','map','mask','meal','meat','mirror','moon','mouse','nail','neck','needle','nest','net','nose','nut',
+    'orange','page','paint','pan','pencil','pillow','pipe','plate','poem','pot','pump','ring','rope','sail','seed','sheep','shell','shirt','shoe','silver','skin','smoke',
+    'snake','sock','spade','spoon','stick','stone','string','table','tail','thread','thumb','ticket','toe','tongue','tool','tooth','town','toy','trap','tray','truck','tub',
+    'twig','vine','wagon','wheel','whip','wire','worm','anchor','arch','arrow','badge','basket','beach','bead','beam','bean','beast','bench','blade','blanket','boat','bolt',
+    'bottle','branch','brick','broom','bubble','bucket','button','cable','cage','cake','camel','candle','canyon','cape','cart','castle','cave','cellar','chain','chalk','chapel',
+    'cherry','chest','chimney','church','circle','circus','cliff','cloak','clover','clown','coast','cobweb','coconut','comet','compass','copper','coral','cottage','cotton','couch',
+    'cradle','crater','creek','crowd','crystal','curtain','cushion','dagger','daisy','desert','dew','ditch','dock','donkey','dragon','drawer','dungeon','eagle','elbow','emerald',
+    'engine','falcon','feather','fence','ferry','fiddle','fig','finch','flute','fountain','furnace','galaxy','garage','garden','garnet','giraffe','glacier','goblin','goose','gorilla',
+    'gravel','greenhouse','grenade','griffin','grotto','guitar','harbor','harvest','hazel','heather','helmet','hermit','herring','highway','hobby','honey','hoof','horizon','hospital',
+    'hotel','hunter','hut','hydrant','iceberg','idol','igloo','insect','island','ivory','jacket','jade','jar','jasmine','jeep','jelly','jewel','jungle','kettle','kitten','knight',
+    'ladder','lagoon','lantern','lattice','laundry','lemon','lighthouse','lily','limb','lime','lizard','lobster','locket','locust','lollipop','luggage','lumber','mansion','marble',
+    'meadow','melon','mermaid','milestone','mitten','moss','motor','mountain','mushroom','mustard','noodle','notebook','oak','oasis','octopus','onion','orchard','ostrich','otter',
+    'paddle','pagoda','pajamas','palace','panther','parcel','pasture','peach','pearl','pebble','pendulum','penguin','pepper','pickle','picnic','piglet','pillar','pineapple','planet',
+    'plaza','plow','plum','pocket','police','pony','popcorn','porch','postage','potato','prairie','prince','prison','puddle','puppet','pyramid','quartz','rabbit','radar','raft',
+    'rainbow','rattle','raven','razor','ribbon','rocket','rooster','ruby','ruffle','saddle','sapphire','sardine','satchel','saucer','scallop','scarf','scissors','scorpion','scroll',
+    'seagull','seal','shack','shark','shed','shell','shield','shovel','shrimp','sidewalk','silkworm','skeleton','ski','skunk','skyscraper','sled','slime','sling','sloth','slug',
+    'smokestack','snail','snapdragon','snowflake','socket','soda','sofa','soup','sparrow','sphinx','spider','spindle','sponge','sprout','squirrel','stage','stair','stallion',
+    'steeple','sting','stool','stork','stove','straw','streetcar','submarine','suitcase','sunflower','surf','swamp','sweater','swivel','sword','syrup','tambourine','tapestry',
+    'tarantula','teapot','temple','thimble','thorn','throne','thunder','tiger','timber','tinsel','toast','tomato','tornado','tortoise','tower','tractor','tram','trampoline',
+    'treasure','triangle','trolley','trophy','trumpet','tulip','tunnel','turkey','turtle','umbrella','urchin','valve','vanilla','vase','velvet','venom','violet','violin','volcano',
+    'vulture','waffle','walnut','walrus','wasp','waterfall','watermelon','whale','wheat','whistle','wigwam','willow','window','windmill','wing','winter','wizard','wolf','wool',
+    'wren','yacht','yolk','zebra','zenith','zephyr','zinc','zipper',    'zombie'
+  ].filter(function (w, i, a) { return a.indexOf(w) === i; });
+
+  const APP_COLORS = {
+    'None/Control': 'rgba(120, 120, 130, 0.22)',
+    'memoryOS': 'rgba(124, 156, 255, 0.2)',
+    'Luminosity': 'rgba(180, 120, 255, 0.2)',
+    'Chess': 'rgba(111, 200, 150, 0.2)'
+  };
+
+  const USER_COLORS = { Joseph: '#7c9cff', Jonathan: '#ff9c7c' };
+
+  let progressData = null;
+  let friendData = null;
+  let sessionDraft = {};
+  let testIndex = 0;
+  let timers = [];
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(function (el) { el.classList.remove('active'); });
+    const s = document.getElementById(id);
+    if (s) s.classList.add('active');
+  }
+
+  function clearTimers() {
+    timers.forEach(clearInterval);
+    timers = [];
+  }
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  function normalizeWordToken(w) {
+    return String(w).toLowerCase().replace(/[^a-z]/g, '');
+  }
+
+  function wordsMatch(a, b) {
+    const x = normalizeWordToken(a);
+    const y = normalizeWordToken(b);
+    if (!x || !y) return false;
+    if (x === y) return true;
+    function stripPlural(s) {
+      if (s.length > 3 && s.endsWith('ies')) return s.slice(0, -3) + 'y';
+      if (s.length > 3 && s.endsWith('es') && !s.endsWith('ses')) return s.slice(0, -2);
+      if (s.length > 2 && s.endsWith('s') && !s.endsWith('ss')) return s.slice(0, -1);
+      return s;
+    }
+    const sx = stripPlural(x);
+    const sy = stripPlural(y);
+    return sx === sy || sx === y || x === sy || stripPlural(sx) === stripPlural(sy);
+  }
+
+  function parseRecalledWords(text) {
+    return String(text)
+      .split(/[\s,;]+/)
+      .map(function (t) { return normalizeWordToken(t); })
+      .filter(Boolean);
+  }
+
+  function scoreFreeRecall(targets, recalledTokens) {
+    const used = new Array(targets.length).fill(false);
+    let score = 0;
+    recalledTokens.forEach(function (tok) {
+      for (let i = 0; i < targets.length; i++) {
+        if (used[i]) continue;
+        if (wordsMatch(tok, targets[i])) {
+          used[i] = true;
+          score++;
+          break;
+        }
+      }
+    });
+    return score;
+  }
+
+  function validateProgressFile(obj) {
+    if (!obj || typeof obj !== 'object') return 'Invalid file.';
+    if (obj.user !== 'Joseph' && obj.user !== 'Jonathan') return 'Missing or invalid user.';
+    if (!Array.isArray(obj.sessions)) return 'Missing sessions array.';
+    return null;
+  }
+
+  function landingRefresh() {
+    const note = document.getElementById('landing-note');
+    const summary = document.getElementById('landing-summary');
+    const btnLoad = document.getElementById('btn-load');
+    const dashCard = document.getElementById('dash-card');
+    if (progressData) {
+      note.textContent = 'Progress file loaded. Start a new session or load a different file.';
+      summary.classList.remove('hidden');
+      document.getElementById('sum-user').textContent = progressData.user;
+      document.getElementById('sum-count').textContent = String(progressData.sessions.length);
+      const dates = progressData.sessions.map(function (s) { return new Date(s.date).getTime(); }).filter(function (n) { return !isNaN(n); });
+      const last = dates.length ? new Date(Math.max.apply(null, dates)).toLocaleString() : '—';
+      document.getElementById('sum-last').textContent = last;
+      btnLoad.disabled = false;
+      dashCard.classList.remove('hidden');
+    } else {
+      note.textContent = 'No progress file loaded. Start with New Session; your progress downloads at the end. Next time, use Load Progress File.';
+      summary.classList.add('hidden');
+      btnLoad.disabled = false;
+      dashCard.classList.add('hidden');
+    }
+    const fs = document.getElementById('friend-status');
+    if (friendData) fs.textContent = 'Friend file: ' + friendData.user + ' (' + friendData.sessions.length + ' sessions).';
+    else fs.textContent = 'No friend file loaded.';
+  }
+
+  function downloadProgress() {
+    if (!progressData) return;
+    const blob = new Blob([JSON.stringify(progressData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'memory-lab-' + progressData.user + '.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function mergeSessionIntoProgress(session) {
+    if (!progressData) {
+      progressData = { user: session.user, sessions: [] };
+    }
+    progressData.user = session.user;
+    progressData.sessions.push(session);
+  }
+
+  function setProgressBar(el, n) {
+    if (!el) return;
+    const labels = ['Free recall', 'Paired', 'Digit span', 'Spatial'];
+    el.innerHTML = labels.map(function (l, i) {
+      return '<span class="' + (i < n ? 'on' : '') + '">' + (i + 1) + '. ' + l + '</span>';
+    }).join('');
+  }
+
+  function normalizeScores(t) {
+    const fr = Math.min(100, (t.freeRecall.score / 20) * 100);
+    const pa = Math.min(100, (t.pairedAssociates.score / 10) * 100);
+    const ds = Math.min(100, (t.digitSpan.maxSpan / 12) * 100);
+    const sp = Math.min(100, (t.spatialGrid.score / 8) * 100);
+    return { fr: fr, pa: pa, ds: ds, sp: sp, composite: (fr + pa + ds + sp) / 4 };
+  }
+
+  function buildAppLegend() {
+    const el = document.getElementById('app-legend');
+    el.innerHTML = Object.keys(APP_COLORS).map(function (k) {
+      return '<span><span class="dot" style="background:' + (APP_COLORS[k].replace('0.22', '0.9').replace('0.2', '0.85')) + '"></span> ' + k + '</span>';
+    }).join('');
+  }
+
+  function sessionPoints(data) {
+    return data.sessions
+      .map(function (s) {
+        return {
+          date: s.date,
+          x: new Date(s.date).getTime(),
+          q: s.questionnaire,
+          t: s.tests,
+          norm: normalizeScores(s.tests)
+        };
+      })
+      .filter(function (p) { return !isNaN(p.x); })
+      .sort(function (a, b) { return a.x - b.x; });
+  }
+
+  function annotationRegionsForPoints(points) {
+    if (points.length === 0) return {};
+    const ann = {};
+    const padMs = 36 * 60 * 60 * 1000;
+    for (let i = 0; i < points.length; i++) {
+      const prev = i > 0 ? points[i - 1].x : points[i].x - padMs;
+      const next = i < points.length - 1 ? points[i + 1].x : points[i].x + padMs;
+      const left = (points[i].x + prev) / 2;
+      const right = (points[i].x + next) / 2;
+      const app = points[i].q.app || 'None/Control';
+      const bg = APP_COLORS[app] || 'rgba(100,100,110,0.15)';
+      ann['r' + i] = {
+        type: 'box',
+        xMin: left,
+        xMax: right,
+        xScaleID: 'x',
+        yScaleID: 'y',
+        yMin: 0,
+        yMax: 100,
+        backgroundColor: bg,
+        borderWidth: 0,
+        drawTime: 'beforeDatasetsDraw'
+      };
+    }
+    return ann;
+  }
+
+  function makeTooltipMeta(pointsSelf, pointsFriend) {
+    return function (ctx) {
+      const pts = ctx.datasetIndex === 0 ? pointsSelf : pointsFriend;
+      const pt = pts[ctx.dataIndex];
+      if (!pt) return [];
+      const q = pt.q;
+      const t = pt.t;
+      return [
+        'App: ' + (q.app || '—'),
+        'Sleep ' + q.sleep + ' | Workouts ' + q.workouts + ' | Diet ' + q.diet,
+        'Free recall: ' + t.freeRecall.score + '/20 | Paired: ' + t.pairedAssociates.score + '/10',
+        'Digit span: ' + t.digitSpan.maxSpan + ' | Spatial: ' + t.spatialGrid.score + '/8'
+      ];
+    };
+  }
+
+  function destroyCharts() {
+    ['chart-composite', 'chart-fr', 'chart-pa', 'chart-ds', 'chart-sp'].forEach(function (id) {
+      const c = Chart.getChart(id);
+      if (c) c.destroy();
+    });
+  }
+
+  function renderDashboard() {
+    if (!progressData || !progressData.sessions.length) {
+      alert('Load a progress file with at least one session to view charts.');
+      return;
+    }
+    buildAppLegend();
+    destroyCharts();
+    const ptsSelf = sessionPoints(progressData);
+    const ptsFriend = friendData ? sessionPoints(friendData) : [];
+
+    const ann = annotationRegionsForPoints(ptsSelf);
+
+    const optComposite = {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#c8cad0' } },
+        tooltip: {
+          callbacks: {
+            afterBody: makeTooltipMeta(ptsSelf, ptsFriend)
+          }
+        },
+        annotation: { annotations: ann }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { tooltipFormat: 'yyyy-MM-dd', displayFormats: { day: 'MMM d' } },
+          grid: { color: '#2a3038' },
+          ticks: { color: '#9aa0a6' }
+        },
+        y: {
+          id: 'y',
+          min: 0,
+          max: 100,
+          title: { display: true, text: 'Normalized %', color: '#9aa0a6' },
+          grid: { color: '#2a3038' },
+          ticks: { color: '#9aa0a6', callback: function (v) { return v + '%'; } }
+        }
+      }
+    };
+
+    const dsComp = [];
+    dsComp.push({
+      label: progressData.user,
+      data: ptsSelf.map(function (p) { return { x: p.x, y: p.norm.composite }; }),
+      borderColor: USER_COLORS[progressData.user],
+      tension: 0.2
+    });
+    if (friendData && ptsFriend.length) {
+      dsComp.push({
+        label: friendData.user,
+        data: ptsFriend.map(function (p) { return { x: p.x, y: p.norm.composite }; }),
+        borderColor: USER_COLORS[friendData.user],
+        tension: 0.2
+      });
+    }
+    new Chart(document.getElementById('chart-composite'), {
+      type: 'line',
+      data: { datasets: dsComp },
+      options: optComposite
+    });
+
+    function singleTestChart(canvasId, key, yMax, rawLabel) {
+      const ann2 = annotationRegionsForPoints(ptsSelf);
+      const d0 = ptsSelf.map(function (p) {
+        let y;
+        if (key === 'fr') y = p.norm.fr;
+        else if (key === 'pa') y = p.norm.pa;
+        else if (key === 'ds') y = p.norm.ds;
+        else y = p.norm.sp;
+        return { x: p.x, y: y };
+      });
+      const datasets = [{
+        label: progressData.user,
+        data: d0,
+        borderColor: USER_COLORS[progressData.user],
+        tension: 0.2
+      }];
+      if (friendData && ptsFriend.length) {
+        datasets.push({
+          label: friendData.user,
+          data: ptsFriend.map(function (p) {
+            let y;
+            if (key === 'fr') y = p.norm.fr;
+            else if (key === 'pa') y = p.norm.pa;
+            else if (key === 'ds') y = p.norm.ds;
+            else y = p.norm.sp;
+            return { x: p.x, y: y };
+          }),
+          borderColor: USER_COLORS[friendData.user],
+          tension: 0.2
+        });
+      }
+      new Chart(document.getElementById(canvasId), {
+        type: 'line',
+        data: { datasets: datasets },
+        options: {
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#c8cad0' } },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) {
+                  const pts = ctx.datasetIndex === 0 ? ptsSelf : ptsFriend;
+                  const pt = pts[ctx.dataIndex];
+                  if (!pt) return '';
+                  let raw = '';
+                  if (key === 'fr') raw = pt.t.freeRecall.score + '/20';
+                  else if (key === 'pa') raw = pt.t.pairedAssociates.score + '/10';
+                  else if (key === 'ds') raw = 'max ' + pt.t.digitSpan.maxSpan;
+                  else raw = pt.t.spatialGrid.score + '/8';
+                  return ctx.dataset.label + ': ' + Math.round(ctx.parsed.y) + '% (raw ' + raw + ')';
+                },
+                afterBody: makeTooltipMeta(ptsSelf, ptsFriend)
+              }
+            },
+            annotation: { annotations: ann2 }
+          },
+          scales: {
+            x: {
+              type: 'time',
+              time: { tooltipFormat: 'yyyy-MM-dd', displayFormats: { day: 'MMM d' } },
+              grid: { color: '#2a3038' },
+              ticks: { color: '#9aa0a6' }
+            },
+            y: {
+              id: 'y',
+              min: 0,
+              max: 100,
+              title: { display: true, text: 'Normalized %', color: '#9aa0a6' },
+              grid: { color: '#2a3038' },
+              ticks: { color: '#9aa0a6', callback: function (v) { return v + '%'; } }
+            }
+          }
+        }
+      });
+    }
+
+    singleTestChart('chart-fr', 'fr', 100);
+    singleTestChart('chart-pa', 'pa', 100);
+    singleTestChart('chart-ds', 'ds', 100);
+    singleTestChart('chart-sp', 'sp', 100);
+
+    renderConfoundTable();
+  }
+
+  function renderConfoundTable() {
+    const tbody = document.getElementById('confound-body');
+    tbody.innerHTML = '';
+    const rows = [];
+
+    function addRowsForUser(data) {
+      if (!data || !data.sessions.length) return;
+      const groups = {};
+      data.sessions.forEach(function (s) {
+        const app = s.questionnaire.app || 'None/Control';
+        if (!groups[app]) groups[app] = [];
+        groups[app].push(s.questionnaire);
+      });
+      Object.keys(groups).forEach(function (app) {
+        const qs = groups[app];
+        const n = qs.length;
+        const avgSleep = qs.reduce(function (a, q) { return a + q.sleep; }, 0) / n;
+        const avgWo = qs.reduce(function (a, q) { return a + q.workouts; }, 0) / n;
+        const avgDiet = qs.reduce(function (a, q) { return a + q.diet; }, 0) / n;
+        rows.push({
+          user: data.user,
+          app: app,
+          n: n,
+          sleep: avgSleep.toFixed(2),
+          wo: avgWo.toFixed(2),
+          diet: avgDiet.toFixed(2)
+        });
+      });
+    }
+
+    addRowsForUser(progressData);
+    addRowsForUser(friendData);
+
+    rows.sort(function (a, b) {
+      if (a.user !== b.user) return a.user.localeCompare(b.user);
+      return a.app.localeCompare(b.app);
+    });
+
+    rows.forEach(function (r) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + r.user + '</td><td>' + r.app + '</td><td>' + r.n + '</td><td>' + r.sleep + '</td><td>' + r.wo + '</td><td>' + r.diet + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('q-sleep').addEventListener('input', function () {
+    document.getElementById('sleep-val').textContent = this.value;
+  });
+  document.getElementById('q-diet').addEventListener('input', function () {
+    document.getElementById('diet-val').textContent = this.value;
+  });
+
+  document.getElementById('btn-new-session').addEventListener('click', function () {
+    sessionDraft = {};
+    testIndex = 0;
+    document.querySelectorAll('#q-user input').forEach(function (r) { r.checked = false; });
+    document.querySelectorAll('#q-app input').forEach(function (r) { r.checked = false; });
+    document.getElementById('q-sleep').value = '5';
+    document.getElementById('q-diet').value = '5';
+    document.getElementById('sleep-val').textContent = '5';
+    document.getElementById('diet-val').textContent = '5';
+    document.getElementById('q-workouts').value = '0';
+    document.getElementById('q-notes').value = '';
+    document.getElementById('form-error').classList.add('hidden');
+    if (progressData) {
+      const u = progressData.user;
+      const radio = document.querySelector('#q-user input[value="' + u + '"]');
+      if (radio) radio.checked = true;
+    }
+    showScreen('screen-form');
+  });
+
+  document.getElementById('btn-form-back').addEventListener('click', function () {
+    showScreen('screen-landing');
+  });
+
+  document.getElementById('btn-load').addEventListener('click', function () {
+    document.getElementById('file-load').click();
+  });
+
+  document.getElementById('file-load').addEventListener('change', function (e) {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      try {
+        const obj = JSON.parse(reader.result);
+        const err = validateProgressFile(obj);
+        if (err) {
+          alert(err);
+          return;
+        }
+        progressData = obj;
+        landingRefresh();
+      } catch (ex) {
+        alert('Could not parse JSON.');
+      }
+    };
+    reader.readAsText(f);
+  });
+
+  document.getElementById('btn-compare').addEventListener('click', function () {
+    document.getElementById('file-friend').click();
+  });
+
+  document.getElementById('file-friend').addEventListener('change', function (e) {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      try {
+        const obj = JSON.parse(reader.result);
+        const err = validateProgressFile(obj);
+        if (err) {
+          alert(err);
+          return;
+        }
+        if (progressData && obj.user === progressData.user) {
+          alert('Choose the other person\'s file (different user) for comparison.');
+          return;
+        }
+        friendData = obj;
+        landingRefresh();
+      } catch (ex) {
+        alert('Could not parse JSON.');
+      }
+    };
+    reader.readAsText(f);
+  });
+
+  document.getElementById('btn-dashboard').addEventListener('click', function () {
+    renderDashboard();
+    showScreen('screen-dashboard');
+  });
+
+  document.getElementById('btn-dash-back').addEventListener('click', function () {
+    showScreen('screen-landing');
+  });
+
+  document.getElementById('btn-start-tests').addEventListener('click', function () {
+    const uEl = document.querySelector('#q-user input:checked');
+    const aEl = document.querySelector('#q-app input:checked');
+    const err = document.getElementById('form-error');
+    if (!uEl || !aEl) {
+      err.textContent = 'Please select who you are and which app you use.';
+      err.classList.remove('hidden');
+      return;
+    }
+    const user = uEl.value;
+    if (progressData && progressData.user !== user) {
+      err.textContent = 'Selected user does not match your loaded file (' + progressData.user + '). Load the correct file or pick ' + progressData.user + '.';
+      err.classList.remove('hidden');
+      return;
+    }
+    err.classList.add('hidden');
+    sessionDraft.user = user;
+    sessionDraft.questionnaire = {
+      app: aEl.value,
+      sleep: parseInt(document.getElementById('q-sleep').value, 10),
+      workouts: Math.min(7, Math.max(0, parseInt(document.getElementById('q-workouts').value, 10) || 0)),
+      diet: parseInt(document.getElementById('q-diet').value, 10),
+      notes: document.getElementById('q-notes').value.trim()
+    };
+    sessionDraft.tests = {};
+    beginTestBattery();
+  });
+
+  function beginTestBattery() {
+    testIndex = 0;
+    sessionDraft.poolOrder = shuffle(WORD_POOL);
+    const pool = sessionDraft.poolOrder;
+    sessionDraft.frWords = pool.slice(0, 20);
+    sessionDraft.paPairs = [];
+    const used = new Set(sessionDraft.frWords.map(function (w) { return w.toLowerCase(); }));
+    let idx = 20;
+    for (let i = 0; i < 10; i++) {
+      while (idx < pool.length && used.has(pool[idx].toLowerCase())) idx++;
+      const w1 = pool[idx++];
+      while (idx < pool.length && used.has(pool[idx].toLowerCase())) idx++;
+      const w2 = pool[idx++];
+      sessionDraft.paPairs.push([w1, w2]);
+      used.add(w1.toLowerCase());
+      used.add(w2.toLowerCase());
+    }
+    showReadyInterstitial();
+  }
+
+  function showReadyInterstitial() {
+    const titles = ['Free recall', 'Paired associates', 'Digit span', 'Spatial grid'];
+    document.getElementById('ready-title').textContent = 'Ready?';
+    document.getElementById('ready-sub').textContent = 'Next: ' + titles[testIndex];
+    document.getElementById('ready-progress').innerHTML = [0, 1, 2, 3].map(function (i) {
+      return '<span class="' + (i === testIndex ? 'on' : '') + '">Test ' + (i + 1) + '/4</span>';
+    }).join('');
+    showScreen('screen-ready');
+  }
+
+  document.getElementById('btn-ready-continue').addEventListener('click', function () {
+    if (testIndex === 0) startFreeRecallStudy();
+    else if (testIndex === 1) startPairedStudy();
+    else if (testIndex === 2) startDigitSpan();
+    else if (testIndex === 3) startSpatialStudy();
+  });
+
+  function startFreeRecallStudy() {
+    clearTimers();
+    setProgressBar(document.getElementById('fr-prog'), 1);
+    setProgressBar(document.getElementById('fr-prog2'), 1);
+    const wc = document.getElementById('fr-words');
+    wc.innerHTML = '';
+    sessionDraft.frWords.forEach(function (w) {
+      const s = document.createElement('span');
+      s.textContent = w;
+      wc.appendChild(s);
+    });
+    let left = 60;
+    document.getElementById('fr-study-timer').textContent = String(left);
+    const t = setInterval(function () {
+      left--;
+      document.getElementById('fr-study-timer').textContent = String(left);
+      if (left <= 0) {
+        clearInterval(t);
+        startFreeRecallRecall();
+      }
+    }, 1000);
+    timers.push(t);
+    showScreen('screen-fr-study');
+  }
+
+  function startFreeRecallRecall() {
+    clearTimers();
+    const input = document.getElementById('fr-input');
+    input.value = '';
+    let left = 90;
+    const start = Date.now();
+    document.getElementById('fr-recall-timer').textContent = String(left);
+    const t = setInterval(function () {
+      left--;
+      document.getElementById('fr-recall-timer').textContent = String(left);
+      if (left <= 0) {
+        clearInterval(t);
+        finishFreeRecall(start);
+      }
+    }, 1000);
+    timers.push(t);
+    document.getElementById('fr-submit').onclick = function () {
+      clearTimers();
+      finishFreeRecall(start);
+    };
+    showScreen('screen-fr-recall');
+  }
+
+  function finishFreeRecall(start) {
+    const timeUsed = Math.round((Date.now() - start) / 1000);
+    const recalled = parseRecalledWords(document.getElementById('fr-input').value);
+    const score = scoreFreeRecall(sessionDraft.frWords, recalled);
+    sessionDraft.tests.freeRecall = { score: score, timeUsed: Math.min(90, timeUsed) };
+    testIndex = 1;
+    showReadyInterstitial();
+  }
+
+  function startPairedStudy() {
+    clearTimers();
+    setProgressBar(document.getElementById('pa-prog'), 2);
+    setProgressBar(document.getElementById('pa-prog2'), 2);
+    const el = document.getElementById('pa-pairs');
+    el.innerHTML = sessionDraft.paPairs.map(function (p) {
+      return '<div>' + p[0].toUpperCase() + ' — ' + p[1].toUpperCase() + '</div>';
+    }).join('');
+    let left = 60;
+    document.getElementById('pa-study-timer').textContent = String(left);
+    const timer = setInterval(function () {
+      left--;
+      document.getElementById('pa-study-timer').textContent = String(left);
+      if (left <= 0) {
+        clearInterval(timer);
+        startPairedTest();
+      }
+    }, 1000);
+    timers.push(timer);
+    showScreen('screen-pa-study');
+  }
+
+  function startPairedTest() {
+    sessionDraft.paOrder = shuffle(sessionDraft.paPairs.map(function (_, i) { return i; }));
+    sessionDraft.paIdx = 0;
+    sessionDraft.paTimes = [];
+    sessionDraft.paAnswers = [];
+    sessionDraft.paStartCue = 0;
+    runPairedCue();
+    showScreen('screen-pa-test');
+  }
+
+  function runPairedCue() {
+    const i = sessionDraft.paOrder[sessionDraft.paIdx];
+    const pair = sessionDraft.paPairs[i];
+    document.getElementById('pa-cue').textContent = 'Cue: ' + pair[0].toUpperCase();
+    document.getElementById('pa-input').value = '';
+    sessionDraft.paStartCue = performance.now();
+    document.getElementById('pa-input').focus();
+  }
+
+  function onPairedSubmitClick() {
+    if (!sessionDraft.paOrder || sessionDraft.paIdx >= sessionDraft.paOrder.length) return;
+    const i = sessionDraft.paOrder[sessionDraft.paIdx];
+    const pair = sessionDraft.paPairs[i];
+    const ans = document.getElementById('pa-input').value.trim();
+    const rt = (performance.now() - sessionDraft.paStartCue) / 1000;
+    sessionDraft.paTimes.push(rt);
+    sessionDraft.paAnswers.push(ans);
+    sessionDraft.paIdx++;
+    if (sessionDraft.paIdx >= sessionDraft.paOrder.length) {
+      let totalCorrect = 0;
+      sessionDraft.paOrder.forEach(function (pi, idx) {
+        const pr = sessionDraft.paPairs[pi];
+        const a = sessionDraft.paAnswers[idx];
+        if (wordsMatch(a, pr[1])) totalCorrect++;
+      });
+      const avgRt = sessionDraft.paTimes.length
+        ? sessionDraft.paTimes.reduce(function (a, b) { return a + b; }, 0) / sessionDraft.paTimes.length
+        : 0;
+      sessionDraft.tests.pairedAssociates = { score: totalCorrect, avgResponseTime: Math.round(avgRt * 10) / 10 };
+      testIndex = 2;
+      showReadyInterstitial();
+      return;
+    }
+    runPairedCue();
+  }
+
+  document.getElementById('pa-submit').addEventListener('click', onPairedSubmitClick);
+
+  function startDigitSpan() {
+    clearTimers();
+    setProgressBar(document.getElementById('ds-prog'), 3);
+    sessionDraft.dsCurrentSpan = 4;
+    sessionDraft.dsBestSpan = 0;
+    sessionDraft.dsFailuresAtSpan = {};
+    sessionDraft.dsTotalTrials = 0;
+    showScreen('screen-ds');
+    runDigitSpanTrial();
+  }
+
+  function runDigitSpanTrial() {
+    const len = sessionDraft.dsCurrentSpan;
+    const msg = document.getElementById('ds-msg');
+    const showEl = document.getElementById('ds-digit-show');
+    const inp = document.getElementById('ds-input');
+    const btn = document.getElementById('ds-submit');
+    inp.classList.add('hidden');
+    btn.classList.add('hidden');
+    msg.textContent = 'Remember the sequence (' + len + ' digits).';
+    const digits = [];
+    for (let i = 0; i < len; i++) digits.push(Math.floor(Math.random() * 10));
+    const expected = digits.join('');
+    let di = 0;
+    showEl.classList.remove('hidden');
+    showEl.textContent = '';
+    showEl.style.fontSize = '2rem';
+
+    function showNext() {
+      if (di >= digits.length) {
+        showEl.classList.add('hidden');
+        msg.textContent = 'Type the sequence in order.';
+        inp.classList.remove('hidden');
+        btn.classList.remove('hidden');
+        inp.value = '';
+        inp.focus();
+        return;
+      }
+      showEl.textContent = String(digits[di]);
+      di++;
+      setTimeout(showNext, 1000);
+    }
+    showNext();
+
+    btn.onclick = function () {
+      sessionDraft.dsTotalTrials++;
+      const val = inp.value.replace(/\D/g, '');
+      const ok = val === expected;
+      if (ok) {
+        sessionDraft.dsBestSpan = len;
+        sessionDraft.dsCurrentSpan = len + 1;
+        runDigitSpanTrial();
+        return;
+      }
+      sessionDraft.dsFailuresAtSpan[len] = (sessionDraft.dsFailuresAtSpan[len] || 0) + 1;
+      if (sessionDraft.dsFailuresAtSpan[len] >= 2) {
+        sessionDraft.tests.digitSpan = {
+          maxSpan: sessionDraft.dsBestSpan,
+          totalTrials: sessionDraft.dsTotalTrials
+        };
+        testIndex = 3;
+        showReadyInterstitial();
+        return;
+      }
+      runDigitSpanTrial();
+    };
+  }
+
+  function startSpatialStudy() {
+    clearTimers();
+    setProgressBar(document.getElementById('sp-prog'), 4);
+    setProgressBar(document.getElementById('sp-prog2'), 4);
+    const cells = [];
+    for (let i = 0; i < 25; i++) cells.push(i);
+    const picked = shuffle(cells).slice(0, 8);
+    sessionDraft.spPattern = picked.sort(function (a, b) { return a - b; });
+    const g = document.getElementById('sp-grid-study');
+    g.innerHTML = '';
+    for (let i = 0; i < 25; i++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cell' + (picked.indexOf(i) >= 0 ? ' hl' : '');
+      b.disabled = true;
+      g.appendChild(b);
+    }
+    let left = 30;
+    document.getElementById('sp-study-timer').textContent = String(left);
+    const tm = setInterval(function () {
+      left--;
+      document.getElementById('sp-study-timer').textContent = String(left);
+      if (left <= 0) {
+        clearInterval(tm);
+        startSpatialRecall();
+      }
+    }, 1000);
+    timers.push(tm);
+    showScreen('screen-sp-study');
+  }
+
+  function startSpatialRecall() {
+    const g = document.getElementById('sp-grid-recall');
+    g.innerHTML = '';
+    sessionDraft.spSelected = [];
+    const start = Date.now();
+    let elapsed = 0;
+    const timerEl = document.getElementById('sp-recall-timer');
+    const doneBtn = document.getElementById('sp-done');
+    doneBtn.disabled = true;
+
+    const tick = setInterval(function () {
+      elapsed = Math.round((Date.now() - start) / 1000);
+      timerEl.textContent = String(elapsed);
+    }, 200);
+    timers.push(tick);
+
+    for (let i = 0; i < 25; i++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cell';
+      b.dataset.idx = String(i);
+      b.addEventListener('click', function () {
+        const idx = parseInt(b.dataset.idx, 10);
+        const pos = sessionDraft.spSelected.indexOf(idx);
+        if (pos >= 0) {
+          sessionDraft.spSelected.splice(pos, 1);
+          b.classList.remove('sel');
+        } else if (sessionDraft.spSelected.length < 8) {
+          sessionDraft.spSelected.push(idx);
+          b.classList.add('sel');
+        }
+        doneBtn.disabled = sessionDraft.spSelected.length !== 8;
+      });
+      g.appendChild(b);
+    }
+
+    doneBtn.onclick = function () {
+      clearTimers();
+      const pat = sessionDraft.spPattern;
+      const sel = sessionDraft.spSelected;
+      let match = 0;
+      for (let i = 0; i < pat.length; i++) {
+        if (sel.indexOf(pat[i]) >= 0) match++;
+      }
+      const recallTime = Math.round((Date.now() - start) / 1000);
+      sessionDraft.tests.spatialGrid = { score: match, recallTime: recallTime };
+      finishSession();
+    };
+    showScreen('screen-sp-recall');
+  }
+
+  function finishSession() {
+    const session = {
+      id: uuid(),
+      date: new Date().toISOString(),
+      questionnaire: sessionDraft.questionnaire,
+      tests: sessionDraft.tests
+    };
+    if (!progressData) progressData = { user: sessionDraft.user, sessions: [] };
+    progressData.user = sessionDraft.user;
+    progressData.sessions.push(session);
+    showScreen('screen-done');
+    setTimeout(downloadProgress, 300);
+    try { localStorage.setItem('memoryLabHasSession', '1'); } catch (e) {}
+  }
+
+  document.getElementById('btn-download-again').addEventListener('click', downloadProgress);
+  document.getElementById('btn-done-home').addEventListener('click', function () {
+    landingRefresh();
+    showScreen('screen-landing');
+  });
+
+  landingRefresh();
+})();
+  </script>
+</body>
+</html>
