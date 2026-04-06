@@ -157,7 +157,7 @@
       </div>
       <div style="margin-top: 1rem;">
         <button type="button" class="primary" id="btn-new-session">New Session</button>
-        <button type="button" id="btn-load" disabled>Load Progress File</button>
+        <button type="button" id="btn-load">Load Progress File</button>
       </div>
       <p class="muted" style="margin-top: 1rem; font-size: 0.85rem;">After your first visit, save your JSON and use Load Progress File next time.</p>
     </div>
@@ -556,7 +556,9 @@
   }
 
   function makeTooltipMeta(pointsSelf, pointsFriend) {
-    return function (ctx) {
+    return function (items) {
+      if (!items || !items.length) return [];
+      const ctx = items[0];
       const pts = ctx.datasetIndex === 0 ? pointsSelf : pointsFriend;
       const pt = pts[ctx.dataIndex];
       if (!pt) return [];
@@ -817,6 +819,12 @@
           alert(err);
           return;
         }
+        const fn = (f.name || '').replace(/^.*[\\/]/, '');
+        const m = fn.match(/^memory-lab-(.+)\.json$/i);
+        if (m && m[1] !== obj.user) {
+          alert('This file is named for "' + m[1] + '" but the data says user "' + obj.user + '". Use the matching file.');
+          return;
+        }
         progressData = obj;
         landingRefresh();
       } catch (ex) {
@@ -845,6 +853,12 @@
         }
         if (progressData && obj.user === progressData.user) {
           alert('Choose the other person\'s file (different user) for comparison.');
+          return;
+        }
+        const fn = (f.name || '').replace(/^.*[\\/]/, '');
+        const m = fn.match(/^memory-lab-(.+)\.json$/i);
+        if (m && m[1] !== obj.user) {
+          alert('This file is named for "' + m[1] + '" but the data says user "' + obj.user + '". Use the matching file.');
           return;
         }
         friendData = obj;
@@ -903,8 +917,10 @@
     let idx = 20;
     for (let i = 0; i < 10; i++) {
       while (idx < pool.length && used.has(pool[idx].toLowerCase())) idx++;
+      if (idx >= pool.length) break;
       const w1 = pool[idx++];
       while (idx < pool.length && used.has(pool[idx].toLowerCase())) idx++;
+      if (idx >= pool.length) break;
       const w2 = pool[idx++];
       sessionDraft.paPairs.push([w1, w2]);
       used.add(w1.toLowerCase());
@@ -1056,6 +1072,12 @@
   }
 
   document.getElementById('pa-submit').addEventListener('click', onPairedSubmitClick);
+  document.getElementById('pa-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onPairedSubmitClick();
+    }
+  });
 
   function startDigitSpan() {
     clearTimers();
@@ -1107,6 +1129,15 @@
       const ok = val === expected;
       if (ok) {
         sessionDraft.dsBestSpan = len;
+        if (len >= 14) {
+          sessionDraft.tests.digitSpan = {
+            maxSpan: len,
+            totalTrials: sessionDraft.dsTotalTrials
+          };
+          testIndex = 3;
+          showReadyInterstitial();
+          return;
+        }
         sessionDraft.dsCurrentSpan = len + 1;
         runDigitSpanTrial();
         return;
@@ -1219,7 +1250,6 @@
     progressData.sessions.push(session);
     showScreen('screen-done');
     setTimeout(downloadProgress, 300);
-    try { localStorage.setItem('memoryLabHasSession', '1'); } catch (e) {}
   }
 
   document.getElementById('btn-download-again').addEventListener('click', downloadProgress);
