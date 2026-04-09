@@ -127,9 +127,26 @@
     .summary-line { margin: 0.35rem 0; }
     .interstitial { text-align: center; padding: 2rem 0; }
     .hidden { display: none !important; }
+    .debug-footer {
+      position: fixed;
+      bottom: 6px;
+      right: 10px;
+      z-index: 9999;
+    }
+    .debug-footer button {
+      font-size: 11px;
+      color: #5a5f66;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 4px 6px;
+    }
+    .debug-footer button:hover { color: #8a9099; }
   </style>
 </head>
 <body>
+  <div class="debug-footer"><button type="button" id="debug-next">debug next</button></div>
   <input type="file" id="file-load" accept=".json,application/json" class="hidden" />
   <input type="file" id="file-friend" accept=".json,application/json" class="hidden" />
 
@@ -247,13 +264,14 @@
 
   <!-- Test 3: Digit span -->
   <section id="screen-ds" class="screen">
-    <h1>Digit span</h1>
-    <p class="muted" id="ds-msg">Memorize the digits below, then type them in order.</p>
+    <h1>Digit span <span class="muted" id="ds-wave-label" style="font-size:0.85rem;font-weight:400;"></span></h1>
+    <p class="muted" id="ds-msg">Study the digits first. They disappear before you type.</p>
     <div id="ds-digit-show" class="timer" style="font-size:1.75rem;letter-spacing:0.15em;"></div>
-    <input type="text" id="ds-input" class="hidden" inputmode="numeric" autocomplete="off" placeholder="Type the sequence" />
+    <button type="button" class="primary" id="ds-begin-recall">Digits hidden — type now</button>
+    <input type="text" id="ds-input" class="hidden" inputmode="numeric" autocomplete="off" placeholder="Type the sequence you memorized" />
     <div class="test-actions">
       <button type="button" class="primary hidden" id="ds-submit">Submit</button>
-      <button type="button" id="btn-ds-redo">Redo digit span</button>
+      <button type="button" id="btn-ds-redo">Redo digit span (this wave)</button>
     </div>
   </section>
 
@@ -264,7 +282,7 @@
     <div class="spatial-grid max-w" id="sp-grid-study"></div>
     <div class="test-actions">
       <button type="button" class="primary" id="sp-skip-study">Skip to recall</button>
-      <button type="button" id="btn-sp-redo">Redo spatial (all rounds)</button>
+      <button type="button" id="btn-sp-redo">Redo wave (from free recall)</button>
     </div>
   </section>
 
@@ -274,7 +292,7 @@
     <div class="spatial-grid max-w" id="sp-grid-recall"></div>
     <div class="test-actions">
       <button type="button" class="primary" id="sp-done" disabled>Done</button>
-      <button type="button" id="btn-sp-redo-2">Redo spatial (all rounds)</button>
+      <button type="button" id="btn-sp-redo-2">Redo wave (from free recall)</button>
     </div>
   </section>
 
@@ -409,10 +427,18 @@
     return 0;
   }
 
+  function digitSpanMeanMax(t) {
+    if (t.digitSpan && t.digitSpan.waves && t.digitSpan.waves.length) {
+      const vals = t.digitSpan.waves.filter(Boolean);
+      if (vals.length) return safeAvg(vals, function (w) { return w.maxSpan; });
+    }
+    if (t.digitSpan && typeof t.digitSpan.maxSpan === 'number') return t.digitSpan.maxSpan;
+    return 0;
+  }
+
   let progressData = null;
   let friendData = null;
   let sessionDraft = {};
-  let testIndex = 0;
   let timers = [];
 
   function showScreen(id) {
@@ -554,7 +580,7 @@
   function normalizeScores(t) {
     const fr = Math.min(100, (freeRecallMeanScore(t) / 20) * 100);
     const pa = Math.min(100, (pairedMeanScore(t) / 10) * 100);
-    const ds = Math.min(100, ((t.digitSpan && t.digitSpan.maxSpan) || 0) / 12 * 100);
+    const ds = Math.min(100, (digitSpanMeanMax(t) / 12) * 100);
     const sp = Math.min(100, spatialMeanPct(t));
     return { fr: fr, pa: pa, ds: ds, sp: sp, composite: (fr + pa + ds + sp) / 4 };
   }
@@ -586,6 +612,16 @@
       }).join(', ');
     }
     if (t.spatialGrid && typeof t.spatialGrid.score === 'number') return t.spatialGrid.score + '/8';
+    return '—';
+  }
+
+  function dsWavesSummary(t) {
+    if (t.digitSpan && t.digitSpan.waves && t.digitSpan.waves.length) {
+      return t.digitSpan.waves.filter(Boolean).map(function (w) {
+        return 'max ' + w.maxSpan;
+      }).join(', ');
+    }
+    if (t.digitSpan && typeof t.digitSpan.maxSpan === 'number') return 'max ' + t.digitSpan.maxSpan;
     return '—';
   }
 
@@ -652,7 +688,7 @@
         'Sleep ' + q.sleep + ' | Workouts ' + q.workouts + ' | Diet ' + q.diet,
         'Free recall: ' + frRoundSummary(t),
         'Paired: ' + paRoundSummary(t),
-        'Digit span: ' + (t.digitSpan ? String(t.digitSpan.maxSpan) : '—') + ' | Spatial: ' + spRoundSummary(t)
+        'Digit span: ' + dsWavesSummary(t) + ' | Spatial: ' + spRoundSummary(t)
       ];
     };
   }
@@ -773,7 +809,7 @@
                   let raw = '';
                   if (key === 'fr') raw = frRoundSummary(pt.t);
                   else if (key === 'pa') raw = paRoundSummary(pt.t);
-                  else if (key === 'ds') raw = 'max ' + (pt.t.digitSpan && pt.t.digitSpan.maxSpan);
+                  else if (key === 'ds') raw = dsWavesSummary(pt.t);
                   else raw = spRoundSummary(pt.t);
                   return ctx.dataset.label + ': ' + Math.round(ctx.parsed.y) + '% (raw ' + raw + ')';
                 },
@@ -864,7 +900,6 @@
 
   document.getElementById('btn-new-session').addEventListener('click', function () {
     sessionDraft = {};
-    testIndex = 0;
     document.querySelectorAll('#q-user input').forEach(function (r) { r.checked = false; });
     document.querySelectorAll('#q-app input').forEach(function (r) { r.checked = false; });
     document.getElementById('q-sleep').value = '5';
@@ -992,76 +1027,69 @@
   });
 
   function beginTestBattery() {
-    testIndex = 0;
     showReadyInterstitial();
   }
 
   function showReadyInterstitial() {
-    const titles = ['Free recall', 'Paired associates', 'Digit span', 'Spatial grid'];
     document.getElementById('ready-title').textContent = 'Ready?';
-    document.getElementById('ready-sub').textContent = 'Next: ' + titles[testIndex];
+    document.getElementById('ready-sub').textContent =
+      'Three waves: free recall → paired associates → digit span → spatial (15s / 30s / 60s slots for word tests), then repeat.';
     showScreen('screen-ready');
   }
 
-  function redoCurrentTest() {
+  function startInterleavedSession() {
     clearTimers();
-    if (testIndex === 0) {
-      sessionDraft.tests.freeRecall = { rounds: [] };
-      sessionDraft.frRound = 0;
-      sessionDraft._frWordDraw = { pool: null, idx: 0 };
-      beginFRRound(0);
-    } else if (testIndex === 1) {
-      sessionDraft.tests.pairedAssociates = { rounds: [] };
-      sessionDraft.paRound = 0;
-      sessionDraft._paWordDraw = { pool: null, idx: 0 };
-      beginPARound(0);
-    } else if (testIndex === 2) {
-      sessionDraft.tests.digitSpan = null;
-      startDigitSpan();
-    } else if (testIndex === 3) {
-      sessionDraft.tests.spatialGrid = { rounds: [] };
-      sessionDraft.spResults = [];
-      sessionDraft.spatialPlan = buildSpatialPlan();
-      beginSpatialRound(0);
+    sessionDraft.tests = {
+      freeRecall: { rounds: [] },
+      pairedAssociates: { rounds: [] },
+      digitSpan: { waves: [] },
+      spatialGrid: { rounds: [] }
+    };
+    sessionDraft._frWordDraw = { pool: null, idx: 0 };
+    sessionDraft._paWordDraw = { pool: null, idx: 0 };
+    sessionDraft.spatialPlan = buildSpatialPlan();
+    sessionDraft.spResults = [];
+    sessionDraft.wave = 0;
+    beginFRRoundForWave(0);
+  }
+
+  function redoWaveFromFreeRecall() {
+    clearTimers();
+    const w = typeof sessionDraft.wave === 'number' ? sessionDraft.wave : 0;
+    sessionDraft.tests.freeRecall.rounds = sessionDraft.tests.freeRecall.rounds.slice(0, w);
+    sessionDraft.tests.pairedAssociates.rounds = sessionDraft.tests.pairedAssociates.rounds.slice(0, w);
+    if (sessionDraft.tests.digitSpan && sessionDraft.tests.digitSpan.waves) {
+      sessionDraft.tests.digitSpan.waves = sessionDraft.tests.digitSpan.waves.slice(0, w);
     }
+    sessionDraft.spResults = sessionDraft.spResults.slice(0, w);
+    beginFRRoundForWave(w);
+  }
+
+  function redoCurrentTest() {
+    redoWaveFromFreeRecall();
   }
 
   document.getElementById('btn-ready-continue').addEventListener('click', function () {
-    if (testIndex === 0) startFreeRecallStudy();
-    else if (testIndex === 1) startPairedStudy();
-    else if (testIndex === 2) startDigitSpan();
-    else if (testIndex === 3) startSpatialStudy();
+    startInterleavedSession();
   });
 
-  function startFreeRecallStudy() {
-    clearTimers();
-    sessionDraft.tests.freeRecall = { rounds: [] };
-    sessionDraft.frRound = 0;
-    sessionDraft._frWordDraw = { pool: null, idx: 0 };
-    beginFRRound(0);
-  }
-
-  function beginFRRound(r) {
-    if (r >= 3) {
-      testIndex = 1;
-      showReadyInterstitial();
-      return;
-    }
-    sessionDraft.frRound = r;
+  function beginFRRoundForWave(w) {
+    sessionDraft.wave = w;
+    sessionDraft.frRound = w;
     if (!sessionDraft._frWordDraw) sessionDraft._frWordDraw = { pool: null, idx: 0 };
     sessionDraft.frWords = takeWordsFromShuffledPool(sessionDraft._frWordDraw, 20);
     const user = sessionDraft.user;
-    const studySlotSec = FR_PA_STUDY_SLOTS[r];
-    const actualStudySec = studySecondsForRound(r, user);
+    const studySlotSec = FR_PA_STUDY_SLOTS[w];
+    const actualStudySec = studySecondsForRound(w, user);
     sessionDraft._frThisRound = {
       studySlotSec: studySlotSec,
-      handicapSec: r === 0 ? handicap15Seconds(user) : 0,
+      handicapSec: w === 0 ? handicap15Seconds(user) : 0,
       actualStudySec: actualStudySec
     };
-    document.getElementById('fr-study-title').textContent = 'Free recall — Study (' + (r + 1) + '/3)';
+    document.getElementById('fr-study-title').textContent = 'Free recall — Wave ' + (w + 1) + '/3 · Study';
     document.getElementById('fr-study-blurb').textContent =
-      'New random words this round. Memorize for ' + actualStudySec + 's (timing slot ' + studySlotSec + 's' +
-      (r === 0 ? '; + ' + sessionDraft._frThisRound.handicapSec + 's adjustment on the 15s slot' : '') + ').';
+      'New random words. Memorize for ' + actualStudySec + 's (timing slot ' + studySlotSec + 's' +
+      (w === 0 ? '; + ' + sessionDraft._frThisRound.handicapSec + 's adjustment on the 15s slot' : '') + ').';
     const wc = document.getElementById('fr-words');
     wc.innerHTML = '';
     sessionDraft.frWords.forEach(function (w) {
@@ -1085,8 +1113,8 @@
 
   function startFreeRecallRecall() {
     clearTimers();
-    const r = sessionDraft.frRound;
-    document.getElementById('fr-recall-title').textContent = 'Free recall — Recall (' + (r + 1) + '/3)';
+    const r = sessionDraft.wave;
+    document.getElementById('fr-recall-title').textContent = 'Free recall — Wave ' + (r + 1) + '/3 · Recall';
     const input = document.getElementById('fr-input');
     input.value = '';
     let left = 90;
@@ -1120,25 +1148,11 @@
       score: score,
       timeUsed: Math.min(90, timeUsed)
     });
-    sessionDraft.frRound++;
-    beginFRRound(sessionDraft.frRound);
+    beginPARoundForWave(sessionDraft.wave);
   }
 
-  function startPairedStudy() {
-    clearTimers();
-    sessionDraft.tests.pairedAssociates = { rounds: [] };
-    sessionDraft.paRound = 0;
-    sessionDraft._paWordDraw = { pool: null, idx: 0 };
-    beginPARound(0);
-  }
-
-  function beginPARound(r) {
-    if (r >= 3) {
-      testIndex = 2;
-      showReadyInterstitial();
-      return;
-    }
-    sessionDraft.paRound = r;
+  function beginPARoundForWave(w) {
+    sessionDraft.paRound = w;
     if (!sessionDraft._paWordDraw) sessionDraft._paWordDraw = { pool: null, idx: 0 };
     const slice = takeWordsFromShuffledPool(sessionDraft._paWordDraw, 20);
     sessionDraft.paPairs = [];
@@ -1146,17 +1160,17 @@
       sessionDraft.paPairs.push([slice[i * 2], slice[i * 2 + 1]]);
     }
     const user = sessionDraft.user;
-    const studySlotSec = FR_PA_STUDY_SLOTS[r];
-    const actualStudySec = studySecondsForRound(r, user);
+    const studySlotSec = FR_PA_STUDY_SLOTS[w];
+    const actualStudySec = studySecondsForRound(w, user);
     sessionDraft._paThisRound = {
       studySlotSec: studySlotSec,
-      handicapSec: r === 0 ? handicap15Seconds(user) : 0,
+      handicapSec: w === 0 ? handicap15Seconds(user) : 0,
       actualStudySec: actualStudySec
     };
-    document.getElementById('pa-study-title').textContent = 'Paired associates — Study (' + (r + 1) + '/3)';
+    document.getElementById('pa-study-title').textContent = 'Paired associates — Wave ' + (w + 1) + '/3 · Study';
     document.getElementById('pa-study-blurb').textContent =
-      'New random pairs this round. Study for ' + actualStudySec + 's (slot ' + studySlotSec + 's' +
-      (r === 0 ? '; incl. ' + sessionDraft._paThisRound.handicapSec + 's on 15s slot' : '') + ').';
+      'New random pairs. Study for ' + actualStudySec + 's (slot ' + studySlotSec + 's' +
+      (w === 0 ? '; incl. ' + sessionDraft._paThisRound.handicapSec + 's on 15s slot' : '') + ').';
     const el = document.getElementById('pa-pairs');
     el.innerHTML = sessionDraft.paPairs.map(function (p) {
       return '<div>' + p[0].toUpperCase() + ' — ' + p[1].toUpperCase() + '</div>';
@@ -1221,8 +1235,7 @@
         score: totalCorrect,
         avgResponseTime: Math.round(avgRt * 10) / 10
       });
-      sessionDraft.paRound++;
-      beginPARound(sessionDraft.paRound);
+      startDigitSpanForWave(sessionDraft.wave);
       return;
     }
     runPairedCue();
@@ -1236,16 +1249,17 @@
     }
   });
 
-  document.getElementById('btn-fr-redo').addEventListener('click', function () { testIndex = 0; redoCurrentTest(); });
-  document.getElementById('btn-fr-redo-2').addEventListener('click', function () { testIndex = 0; redoCurrentTest(); });
-  document.getElementById('btn-pa-redo').addEventListener('click', function () { testIndex = 1; redoCurrentTest(); });
-  document.getElementById('btn-pa-redo-2').addEventListener('click', function () { testIndex = 1; redoCurrentTest(); });
-  document.getElementById('btn-ds-redo').addEventListener('click', function () { testIndex = 2; redoCurrentTest(); });
-  document.getElementById('btn-sp-redo').addEventListener('click', function () { testIndex = 3; redoCurrentTest(); });
-  document.getElementById('btn-sp-redo-2').addEventListener('click', function () { testIndex = 3; redoCurrentTest(); });
+  document.getElementById('btn-fr-redo').addEventListener('click', redoCurrentTest);
+  document.getElementById('btn-fr-redo-2').addEventListener('click', redoCurrentTest);
+  document.getElementById('btn-pa-redo').addEventListener('click', redoCurrentTest);
+  document.getElementById('btn-pa-redo-2').addEventListener('click', redoCurrentTest);
+  document.getElementById('btn-ds-redo').addEventListener('click', redoCurrentTest);
+  document.getElementById('btn-sp-redo').addEventListener('click', redoCurrentTest);
+  document.getElementById('btn-sp-redo-2').addEventListener('click', redoCurrentTest);
 
-  function startDigitSpan() {
+  function startDigitSpanForWave(w) {
     clearTimers();
+    sessionDraft._dsWave = w;
     sessionDraft.dsCurrentSpan = 4;
     sessionDraft.dsBestSpan = 0;
     sessionDraft.dsFailuresAtSpan = {};
@@ -1254,54 +1268,62 @@
     runDigitSpanTrial();
   }
 
+  function recordDigitSpanWaveComplete(maxSpan, totalTrials) {
+    if (!sessionDraft.tests.digitSpan.waves) sessionDraft.tests.digitSpan.waves = [];
+    sessionDraft.tests.digitSpan.waves[sessionDraft._dsWave] = { maxSpan: maxSpan, totalTrials: totalTrials };
+    beginSpatialRound(sessionDraft._dsWave);
+  }
+
   function runDigitSpanTrial() {
+    const wv = sessionDraft._dsWave;
+    document.getElementById('ds-wave-label').textContent = '(wave ' + (wv + 1) + '/3)';
     const len = sessionDraft.dsCurrentSpan;
     const msg = document.getElementById('ds-msg');
     const showEl = document.getElementById('ds-digit-show');
     const inp = document.getElementById('ds-input');
     const btn = document.getElementById('ds-submit');
-    msg.textContent = 'Digits are random each trial (order is shuffled). Type them left to right as shown.';
+    const beginBtn = document.getElementById('ds-begin-recall');
+    msg.textContent = 'Study the digits. When you are ready, hide them and type from memory.';
     const digits = [];
     for (let i = 0; i < len; i++) digits.push(Math.floor(Math.random() * 10));
     const displayDigits = shuffle(digits);
     const expected = displayDigits.join('');
     showEl.textContent = displayDigits.join(' ');
     showEl.classList.remove('hidden');
-    inp.classList.remove('hidden');
-    btn.classList.remove('hidden');
-    inp.value = '';
-    inp.focus();
+    inp.classList.add('hidden');
+    btn.classList.add('hidden');
+    beginBtn.classList.remove('hidden');
 
-    btn.onclick = function () {
-      sessionDraft.dsTotalTrials++;
-      const val = inp.value.replace(/\D/g, '');
-      const ok = val === expected;
-      if (ok) {
-        sessionDraft.dsBestSpan = len;
-        if (len >= 14) {
-          sessionDraft.tests.digitSpan = {
-            maxSpan: len,
-            totalTrials: sessionDraft.dsTotalTrials
-          };
-          testIndex = 3;
-          showReadyInterstitial();
+    beginBtn.onclick = function () {
+      showEl.textContent = '';
+      showEl.classList.add('hidden');
+      beginBtn.classList.add('hidden');
+      inp.classList.remove('hidden');
+      btn.classList.remove('hidden');
+      inp.value = '';
+      inp.focus();
+
+      btn.onclick = function () {
+        sessionDraft.dsTotalTrials++;
+        const val = inp.value.replace(/\D/g, '');
+        const ok = val === expected;
+        if (ok) {
+          sessionDraft.dsBestSpan = len;
+          if (len >= 14) {
+            recordDigitSpanWaveComplete(len, sessionDraft.dsTotalTrials);
+            return;
+          }
+          sessionDraft.dsCurrentSpan = len + 1;
+          runDigitSpanTrial();
           return;
         }
-        sessionDraft.dsCurrentSpan = len + 1;
+        sessionDraft.dsFailuresAtSpan[len] = (sessionDraft.dsFailuresAtSpan[len] || 0) + 1;
+        if (sessionDraft.dsFailuresAtSpan[len] >= 2) {
+          recordDigitSpanWaveComplete(sessionDraft.dsBestSpan, sessionDraft.dsTotalTrials);
+          return;
+        }
         runDigitSpanTrial();
-        return;
-      }
-      sessionDraft.dsFailuresAtSpan[len] = (sessionDraft.dsFailuresAtSpan[len] || 0) + 1;
-      if (sessionDraft.dsFailuresAtSpan[len] >= 2) {
-        sessionDraft.tests.digitSpan = {
-          maxSpan: sessionDraft.dsBestSpan,
-          totalTrials: sessionDraft.dsTotalTrials
-        };
-        testIndex = 3;
-        showReadyInterstitial();
-        return;
-      }
-      runDigitSpanTrial();
+      };
     };
   }
 
@@ -1319,20 +1341,7 @@
     return shuffle(rounds);
   }
 
-  function startSpatialStudy() {
-    clearTimers();
-    sessionDraft.spatialPlan = buildSpatialPlan();
-    sessionDraft.spResults = [];
-    sessionDraft.tests.spatialGrid = { rounds: [] };
-    beginSpatialRound(0);
-  }
-
   function beginSpatialRound(r) {
-    if (r >= 3) {
-      sessionDraft.tests.spatialGrid = { rounds: sessionDraft.spResults.slice() };
-      finishSession();
-      return;
-    }
     sessionDraft.spRound = r;
     const cfg = sessionDraft.spatialPlan[r];
     const size = cfg.gridSize;
@@ -1344,7 +1353,7 @@
     sessionDraft.spPattern = picked;
     sessionDraft.spCurrentConfig = cfg;
 
-    document.getElementById('sp-study-title').textContent = 'Spatial grid — Study (' + (r + 1) + '/3)';
+    document.getElementById('sp-study-title').textContent = 'Spatial grid — Wave ' + (r + 1) + '/3 · Study';
     document.getElementById('sp-study-blurb').textContent =
       size + '×' + size + ' grid. Memorize up to 30s — use Skip when ready; memorization time is recorded.';
 
@@ -1439,12 +1448,28 @@
         score: match,
         recallTimeSec: recallTimeSec
       });
-      beginSpatialRound(sessionDraft.spRound + 1);
+      sessionDraft.tests.spatialGrid = { rounds: sessionDraft.spResults.slice() };
+      const w = sessionDraft.spRound;
+      if (w < 2) {
+        beginFRRoundForWave(w + 1);
+      } else {
+        finishSession();
+      }
     };
     showScreen('screen-sp-recall');
   }
 
+  function finalizeDigitSpanAggregates() {
+    const waves = sessionDraft.tests.digitSpan && sessionDraft.tests.digitSpan.waves;
+    if (!waves || !waves.length) return;
+    const vals = waves.filter(Boolean);
+    if (!vals.length) return;
+    sessionDraft.tests.digitSpan.maxSpan = Math.round(safeAvg(vals, function (x) { return x.maxSpan; }) * 10) / 10;
+    sessionDraft.tests.digitSpan.totalTrials = vals.reduce(function (a, b) { return a + b.totalTrials; }, 0);
+  }
+
   function finishSession() {
+    finalizeDigitSpanAggregates();
     const session = {
       id: uuid(),
       date: new Date().toISOString(),
@@ -1463,6 +1488,82 @@
     landingRefresh();
     showScreen('screen-landing');
   });
+
+  function debugSkipCurrentStep() {
+    if (!sessionDraft.tests || !sessionDraft.tests.freeRecall) return;
+    clearTimers();
+    const active = document.querySelector('.screen.active');
+    const id = active ? active.id : '';
+    const w = typeof sessionDraft.wave === 'number' ? sessionDraft.wave : 0;
+    const user = sessionDraft.user;
+
+    if (id === 'screen-fr-study' || id === 'screen-fr-recall') {
+      const meta = sessionDraft._frThisRound || {
+        studySlotSec: FR_PA_STUDY_SLOTS[w],
+        handicapSec: w === 0 ? handicap15Seconds(user) : 0,
+        actualStudySec: studySecondsForRound(w, user)
+      };
+      sessionDraft.tests.freeRecall.rounds.push({
+        studySlotSec: meta.studySlotSec,
+        handicapSec: meta.handicapSec,
+        actualStudySec: meta.actualStudySec,
+        score: 0,
+        timeUsed: 0
+      });
+      beginPARoundForWave(w);
+      return;
+    }
+    if (id === 'screen-pa-study' || id === 'screen-pa-test') {
+      const meta = sessionDraft._paThisRound || {
+        studySlotSec: FR_PA_STUDY_SLOTS[w],
+        handicapSec: w === 0 ? handicap15Seconds(user) : 0,
+        actualStudySec: studySecondsForRound(w, user)
+      };
+      sessionDraft.tests.pairedAssociates.rounds.push({
+        studySlotSec: meta.studySlotSec,
+        handicapSec: meta.handicapSec,
+        actualStudySec: meta.actualStudySec,
+        score: 0,
+        avgResponseTime: 0
+      });
+      startDigitSpanForWave(w);
+      return;
+    }
+    if (id === 'screen-ds') {
+      recordDigitSpanWaveComplete(0, 0);
+      return;
+    }
+    if (id === 'screen-sp-study') {
+      if (sessionDraft._spStudyTimer) {
+        clearTimeout(sessionDraft._spStudyTimer);
+        sessionDraft._spStudyTimer = null;
+      }
+      sessionDraft._spStudyTimeSec = 0;
+      startSpatialRecall();
+      return;
+    }
+    if (id === 'screen-sp-recall') {
+      const cfg = sessionDraft.spCurrentConfig;
+      const k = sessionDraft.spPattern ? sessionDraft.spPattern.length : 0;
+      sessionDraft.spResults.push({
+        gridSize: cfg.gridSize,
+        targetTiles: k,
+        studyTimeSec: sessionDraft._spStudyTimeSec || 0,
+        score: 0,
+        recallTimeSec: 0
+      });
+      sessionDraft.tests.spatialGrid = { rounds: sessionDraft.spResults.slice() };
+      const sw = sessionDraft.spRound;
+      if (sw < 2) {
+        beginFRRoundForWave(sw + 1);
+      } else {
+        finishSession();
+      }
+      return;
+    }
+  }
+
+  document.getElementById('debug-next').addEventListener('click', debugSkipCurrentStep);
 
   landingRefresh();
 })();
