@@ -22,7 +22,7 @@
       --text: #e8eaed;
       --muted: #9aa0a6;
       --accent: #7c9cff;
-      --accent-dim: #5a7ae0;
+      --accent-dim: #3c4e8a;
       --success: #6bcf7f;
       --danger: #e57373;
       --radius: 10px;
@@ -75,20 +75,6 @@
     input[type="range"] { width: 100%; max-width: 22rem; }
     .radio-row { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.35rem; }
     .radio-row label { font-weight: normal; cursor: pointer; }
-    .progress-bar {
-      display: flex;
-      gap: 0.35rem;
-      margin-bottom: 1rem;
-      flex-wrap: wrap;
-    }
-    .progress-bar span {
-      padding: 0.25rem 0.55rem;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      background: #22262e;
-      color: var(--muted);
-    }
-    .progress-bar span.on { background: #2a3350; color: var(--accent); }
     .timer { font-variant-numeric: tabular-nums; font-size: 1.5rem; font-weight: 600; color: var(--accent); margin: 0.5rem 0; }
     .word-cloud {
       display: flex;
@@ -104,23 +90,25 @@
       border-radius: 6px;
       font-size: 0.95rem;
     }
-    .grid-5 {
+    .spatial-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
       gap: 6px;
-      max-width: 280px;
       margin: 1rem auto;
       touch-action: manipulation;
+      justify-content: center;
     }
-    .grid-5 button.cell {
+    .spatial-grid.max-w { max-width: min(96vw, 420px); }
+    .grid-5 button.cell,
+    .spatial-grid button.cell {
       aspect-ratio: 1;
       margin: 0;
       padding: 0;
       font-size: 0.75rem;
       border-radius: 6px;
     }
-    .grid-5 button.cell.hl { background: #3d4f7a; border-color: var(--accent); }
-    .grid-5 button.cell.sel { background: #2d5a3d; border-color: var(--success); }
+    .spatial-grid button.cell.hl { background: #3d4f7a; border-color: var(--accent); }
+    .spatial-grid button.cell.sel { background: #2d5a3d; border-color: var(--success); }
+    .test-actions { margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
     .pair-list { font-size: 0.95rem; line-height: 1.7; columns: 2; column-gap: 1.5rem; }
     @media (max-width: 520px) { .pair-list { columns: 1; } }
     .dashboard-wrap { max-width: 56rem; margin: 0 auto; }
@@ -206,7 +194,6 @@
   <!-- Interstitial -->
   <section id="screen-ready" class="screen">
     <div class="interstitial card">
-      <div class="progress-bar" id="ready-progress"></div>
       <h2 id="ready-title">Ready?</h2>
       <p class="muted" id="ready-sub">Next: Free Recall</p>
       <button type="button" class="primary" id="btn-ready-continue">Continue</button>
@@ -215,67 +202,80 @@
 
   <!-- Test 1: Free recall study -->
   <section id="screen-fr-study" class="screen">
-    <h1>Free recall — Study</h1>
-    <div class="progress-bar" id="fr-prog"></div>
-    <p class="muted">Memorize these 20 words. You have 60 seconds.</p>
-    <div class="timer" id="fr-study-timer">60</div>
+    <h1 id="fr-study-title">Free recall — Study</h1>
+    <p class="muted" id="fr-study-blurb">Memorize these words.</p>
+    <div class="timer" id="fr-study-timer"></div>
     <div class="word-cloud" id="fr-words"></div>
+    <div class="test-actions">
+      <button type="button" id="btn-fr-redo">Redo free recall (all rounds)</button>
+    </div>
   </section>
 
   <!-- Test 1: Free recall recall -->
   <section id="screen-fr-recall" class="screen">
-    <h1>Free recall — Recall</h1>
-    <div class="progress-bar" id="fr-prog2"></div>
+    <h1 id="fr-recall-title">Free recall — Recall</h1>
     <p class="muted">Type all words you remember, separated by commas or spaces.</p>
     <div class="timer" id="fr-recall-timer">90</div>
     <textarea id="fr-input" placeholder="word1, word2 word3…"></textarea>
-    <button type="button" class="primary" id="fr-submit">Submit (or wait for timer)</button>
+    <div class="test-actions">
+      <button type="button" class="primary" id="fr-submit">Submit (or wait for timer)</button>
+      <button type="button" id="btn-fr-redo-2">Redo free recall (all rounds)</button>
+    </div>
   </section>
 
   <!-- Test 2: Paired study -->
   <section id="screen-pa-study" class="screen">
-    <h1>Paired associates — Study</h1>
-    <div class="progress-bar" id="pa-prog"></div>
-    <p class="muted">Study these pairs for 60 seconds.</p>
-    <div class="timer" id="pa-study-timer">60</div>
+    <h1 id="pa-study-title">Paired associates — Study</h1>
+    <p class="muted" id="pa-study-blurb">Study these pairs.</p>
+    <div class="timer" id="pa-study-timer"></div>
     <div class="pair-list" id="pa-pairs"></div>
+    <div class="test-actions">
+      <button type="button" id="btn-pa-redo">Redo paired associates (all rounds)</button>
+    </div>
   </section>
 
   <!-- Test 2: Paired test -->
   <section id="screen-pa-test" class="screen">
     <h1>Paired associates — Test</h1>
-    <div class="progress-bar" id="pa-prog2"></div>
     <p id="pa-cue" class="muted"></p>
     <input type="text" id="pa-input" autocomplete="off" placeholder="Second word" />
-    <button type="button" class="primary" id="pa-submit">Submit</button>
+    <div class="test-actions">
+      <button type="button" class="primary" id="pa-submit">Submit</button>
+      <button type="button" id="btn-pa-redo-2">Redo paired associates (all rounds)</button>
+    </div>
   </section>
 
   <!-- Test 3: Digit span -->
   <section id="screen-ds" class="screen">
     <h1>Digit span</h1>
-    <div class="progress-bar" id="ds-prog"></div>
-    <p class="muted" id="ds-msg">Watch the digits.</p>
-    <div class="timer hidden" id="ds-digit-show"></div>
+    <p class="muted" id="ds-msg">Memorize the digits below, then type them in order.</p>
+    <div id="ds-digit-show" class="timer" style="font-size:1.75rem;letter-spacing:0.15em;"></div>
     <input type="text" id="ds-input" class="hidden" inputmode="numeric" autocomplete="off" placeholder="Type the sequence" />
-    <button type="button" class="primary hidden" id="ds-submit">Submit</button>
+    <div class="test-actions">
+      <button type="button" class="primary hidden" id="ds-submit">Submit</button>
+      <button type="button" id="btn-ds-redo">Redo digit span</button>
+    </div>
   </section>
 
   <!-- Test 4: Spatial -->
   <section id="screen-sp-study" class="screen">
-    <h1>Spatial grid — Study</h1>
-    <div class="progress-bar" id="sp-prog"></div>
-    <p class="muted">Remember the 8 highlighted cells. You have 30 seconds.</p>
-    <div class="timer" id="sp-study-timer">30</div>
-    <div class="grid-5" id="sp-grid-study"></div>
+    <h1 id="sp-study-title">Spatial grid — Study</h1>
+    <p class="muted" id="sp-study-blurb">Memorize the highlighted cells. Up to 30 seconds — skip when ready.</p>
+    <div class="spatial-grid max-w" id="sp-grid-study"></div>
+    <div class="test-actions">
+      <button type="button" class="primary" id="sp-skip-study">Skip to recall</button>
+      <button type="button" id="btn-sp-redo">Redo spatial (all rounds)</button>
+    </div>
   </section>
 
   <section id="screen-sp-recall" class="screen">
     <h1>Spatial grid — Recall</h1>
-    <div class="progress-bar" id="sp-prog2"></div>
-    <p class="muted">Click exactly 8 cells to match the pattern. Timer starts now.</p>
-    <div class="timer" id="sp-recall-timer">0</div>
-    <div class="grid-5" id="sp-grid-recall"></div>
-    <button type="button" class="primary" id="sp-done" disabled>Done</button>
+    <p class="muted" id="sp-recall-blurb">Click cells to reproduce the pattern.</p>
+    <div class="spatial-grid max-w" id="sp-grid-recall"></div>
+    <div class="test-actions">
+      <button type="button" class="primary" id="sp-done" disabled>Done</button>
+      <button type="button" id="btn-sp-redo-2">Redo spatial (all rounds)</button>
+    </div>
   </section>
 
   <!-- Done / download -->
@@ -362,6 +362,53 @@
 
   const USER_COLORS = { Joseph: '#7c9cff', Jonathan: '#ff9c7c' };
 
+  const FR_PA_STUDY_SLOTS = [15, 30, 60];
+
+  function handicap15Seconds(user) {
+    return user === 'Joseph' ? 5 : 10;
+  }
+
+  function studySecondsForRound(roundIdx, user) {
+    const base = FR_PA_STUDY_SLOTS[roundIdx];
+    if (roundIdx === 0) return base + handicap15Seconds(user);
+    return base;
+  }
+
+  function safeAvg(arr, fn) {
+    if (!arr || !arr.length) return 0;
+    let s = 0;
+    for (let i = 0; i < arr.length; i++) s += fn(arr[i]);
+    return s / arr.length;
+  }
+
+  function freeRecallMeanScore(t) {
+    if (t.freeRecall && t.freeRecall.rounds && t.freeRecall.rounds.length) {
+      return safeAvg(t.freeRecall.rounds, function (r) { return r.score; });
+    }
+    if (t.freeRecall && typeof t.freeRecall.score === 'number') return t.freeRecall.score;
+    return 0;
+  }
+
+  function pairedMeanScore(t) {
+    if (t.pairedAssociates && t.pairedAssociates.rounds && t.pairedAssociates.rounds.length) {
+      return safeAvg(t.pairedAssociates.rounds, function (r) { return r.score; });
+    }
+    if (t.pairedAssociates && typeof t.pairedAssociates.score === 'number') return t.pairedAssociates.score;
+    return 0;
+  }
+
+  function spatialMeanPct(t) {
+    if (t.spatialGrid && t.spatialGrid.rounds && t.spatialGrid.rounds.length) {
+      return safeAvg(t.spatialGrid.rounds, function (r) {
+        return r.targetTiles ? (r.score / r.targetTiles) * 100 : 0;
+      });
+    }
+    if (t.spatialGrid && typeof t.spatialGrid.score === 'number') {
+      return (t.spatialGrid.score / 8) * 100;
+    }
+    return 0;
+  }
+
   let progressData = null;
   let friendData = null;
   let sessionDraft = {};
@@ -375,7 +422,10 @@
   }
 
   function clearTimers() {
-    timers.forEach(clearInterval);
+    timers.forEach(function (id) {
+      clearTimeout(id);
+      clearInterval(id);
+    });
     timers = [];
   }
 
@@ -490,20 +540,42 @@
     progressData.sessions.push(session);
   }
 
-  function setProgressBar(el, n) {
-    if (!el) return;
-    const labels = ['Free recall', 'Paired', 'Digit span', 'Spatial'];
-    el.innerHTML = labels.map(function (l, i) {
-      return '<span class="' + (i < n ? 'on' : '') + '">' + (i + 1) + '. ' + l + '</span>';
-    }).join('');
+  function normalizeScores(t) {
+    const fr = Math.min(100, (freeRecallMeanScore(t) / 20) * 100);
+    const pa = Math.min(100, (pairedMeanScore(t) / 10) * 100);
+    const ds = Math.min(100, ((t.digitSpan && t.digitSpan.maxSpan) || 0) / 12 * 100);
+    const sp = Math.min(100, spatialMeanPct(t));
+    return { fr: fr, pa: pa, ds: ds, sp: sp, composite: (fr + pa + ds + sp) / 4 };
   }
 
-  function normalizeScores(t) {
-    const fr = Math.min(100, (t.freeRecall.score / 20) * 100);
-    const pa = Math.min(100, (t.pairedAssociates.score / 10) * 100);
-    const ds = Math.min(100, (t.digitSpan.maxSpan / 12) * 100);
-    const sp = Math.min(100, (t.spatialGrid.score / 8) * 100);
-    return { fr: fr, pa: pa, ds: ds, sp: sp, composite: (fr + pa + ds + sp) / 4 };
+  function frRoundSummary(t) {
+    if (t.freeRecall && t.freeRecall.rounds && t.freeRecall.rounds.length) {
+      return t.freeRecall.rounds.map(function (r) {
+        return r.score + '/20 @' + (r.studySlotSec || '?') + 's';
+      }).join(', ');
+    }
+    if (t.freeRecall && typeof t.freeRecall.score === 'number') return t.freeRecall.score + '/20';
+    return '—';
+  }
+
+  function paRoundSummary(t) {
+    if (t.pairedAssociates && t.pairedAssociates.rounds && t.pairedAssociates.rounds.length) {
+      return t.pairedAssociates.rounds.map(function (r) {
+        return r.score + '/10 @' + (r.studySlotSec || '?') + 's';
+      }).join(', ');
+    }
+    if (t.pairedAssociates && typeof t.pairedAssociates.score === 'number') return t.pairedAssociates.score + '/10';
+    return '—';
+  }
+
+  function spRoundSummary(t) {
+    if (t.spatialGrid && t.spatialGrid.rounds && t.spatialGrid.rounds.length) {
+      return t.spatialGrid.rounds.map(function (r) {
+        return r.score + '/' + r.targetTiles + ' (' + r.gridSize + '×' + r.gridSize + ')';
+      }).join(', ');
+    }
+    if (t.spatialGrid && typeof t.spatialGrid.score === 'number') return t.spatialGrid.score + '/8';
+    return '—';
   }
 
   function buildAppLegend() {
@@ -567,8 +639,9 @@
       return [
         'App: ' + (q.app || '—'),
         'Sleep ' + q.sleep + ' | Workouts ' + q.workouts + ' | Diet ' + q.diet,
-        'Free recall: ' + t.freeRecall.score + '/20 | Paired: ' + t.pairedAssociates.score + '/10',
-        'Digit span: ' + t.digitSpan.maxSpan + ' | Spatial: ' + t.spatialGrid.score + '/8'
+        'Free recall: ' + frRoundSummary(t),
+        'Paired: ' + paRoundSummary(t),
+        'Digit span: ' + (t.digitSpan ? String(t.digitSpan.maxSpan) : '—') + ' | Spatial: ' + spRoundSummary(t)
       ];
     };
   }
@@ -687,10 +760,10 @@
                   const pt = pts[ctx.dataIndex];
                   if (!pt) return '';
                   let raw = '';
-                  if (key === 'fr') raw = pt.t.freeRecall.score + '/20';
-                  else if (key === 'pa') raw = pt.t.pairedAssociates.score + '/10';
-                  else if (key === 'ds') raw = 'max ' + pt.t.digitSpan.maxSpan;
-                  else raw = pt.t.spatialGrid.score + '/8';
+                  if (key === 'fr') raw = frRoundSummary(pt.t);
+                  else if (key === 'pa') raw = paRoundSummary(pt.t);
+                  else if (key === 'ds') raw = 'max ' + (pt.t.digitSpan && pt.t.digitSpan.maxSpan);
+                  else raw = spRoundSummary(pt.t);
                   return ctx.dataset.label + ': ' + Math.round(ctx.parsed.y) + '% (raw ' + raw + ')';
                 },
                 afterBody: makeTooltipMeta(ptsSelf, ptsFriend)
@@ -933,10 +1006,28 @@
     const titles = ['Free recall', 'Paired associates', 'Digit span', 'Spatial grid'];
     document.getElementById('ready-title').textContent = 'Ready?';
     document.getElementById('ready-sub').textContent = 'Next: ' + titles[testIndex];
-    document.getElementById('ready-progress').innerHTML = [0, 1, 2, 3].map(function (i) {
-      return '<span class="' + (i === testIndex ? 'on' : '') + '">Test ' + (i + 1) + '/4</span>';
-    }).join('');
     showScreen('screen-ready');
+  }
+
+  function redoCurrentTest() {
+    clearTimers();
+    if (testIndex === 0) {
+      sessionDraft.tests.freeRecall = { rounds: [] };
+      sessionDraft.frRound = 0;
+      beginFRRound(0);
+    } else if (testIndex === 1) {
+      sessionDraft.tests.pairedAssociates = { rounds: [] };
+      sessionDraft.paRound = 0;
+      beginPARound(0);
+    } else if (testIndex === 2) {
+      sessionDraft.tests.digitSpan = null;
+      startDigitSpan();
+    } else if (testIndex === 3) {
+      sessionDraft.tests.spatialGrid = { rounds: [] };
+      sessionDraft.spResults = [];
+      sessionDraft.spatialPlan = buildSpatialPlan();
+      beginSpatialRound(0);
+    }
   }
 
   document.getElementById('btn-ready-continue').addEventListener('click', function () {
@@ -948,8 +1039,30 @@
 
   function startFreeRecallStudy() {
     clearTimers();
-    setProgressBar(document.getElementById('fr-prog'), 1);
-    setProgressBar(document.getElementById('fr-prog2'), 1);
+    sessionDraft.tests.freeRecall = { rounds: [] };
+    sessionDraft.frRound = 0;
+    beginFRRound(0);
+  }
+
+  function beginFRRound(r) {
+    if (r >= 3) {
+      testIndex = 1;
+      showReadyInterstitial();
+      return;
+    }
+    sessionDraft.frRound = r;
+    const user = sessionDraft.user;
+    const studySlotSec = FR_PA_STUDY_SLOTS[r];
+    const actualStudySec = studySecondsForRound(r, user);
+    sessionDraft._frThisRound = {
+      studySlotSec: studySlotSec,
+      handicapSec: r === 0 ? handicap15Seconds(user) : 0,
+      actualStudySec: actualStudySec
+    };
+    document.getElementById('fr-study-title').textContent = 'Free recall — Study (' + (r + 1) + '/3)';
+    document.getElementById('fr-study-blurb').textContent =
+      'Same 20 words each round. Memorize for ' + actualStudySec + 's this round (timing slot ' + studySlotSec + 's' +
+      (r === 0 ? '; + ' + sessionDraft._frThisRound.handicapSec + 's adjustment on the 15s slot' : '') + ').';
     const wc = document.getElementById('fr-words');
     wc.innerHTML = '';
     sessionDraft.frWords.forEach(function (w) {
@@ -957,7 +1070,7 @@
       s.textContent = w;
       wc.appendChild(s);
     });
-    let left = 60;
+    let left = actualStudySec;
     document.getElementById('fr-study-timer').textContent = String(left);
     const t = setInterval(function () {
       left--;
@@ -973,6 +1086,8 @@
 
   function startFreeRecallRecall() {
     clearTimers();
+    const r = sessionDraft.frRound;
+    document.getElementById('fr-recall-title').textContent = 'Free recall — Recall (' + (r + 1) + '/3)';
     const input = document.getElementById('fr-input');
     input.value = '';
     let left = 90;
@@ -983,35 +1098,64 @@
       document.getElementById('fr-recall-timer').textContent = String(left);
       if (left <= 0) {
         clearInterval(t);
-        finishFreeRecall(start);
+        finishFreeRecallRound(start);
       }
     }, 1000);
     timers.push(t);
     document.getElementById('fr-submit').onclick = function () {
       clearTimers();
-      finishFreeRecall(start);
+      finishFreeRecallRound(start);
     };
     showScreen('screen-fr-recall');
   }
 
-  function finishFreeRecall(start) {
-    const timeUsed = Math.round((Date.now() - start) / 1000);
+  function finishFreeRecallRound(startRecall) {
+    const timeUsed = Math.round((Date.now() - startRecall) / 1000);
     const recalled = parseRecalledWords(document.getElementById('fr-input').value);
     const score = scoreFreeRecall(sessionDraft.frWords, recalled);
-    sessionDraft.tests.freeRecall = { score: score, timeUsed: Math.min(90, timeUsed) };
-    testIndex = 1;
-    showReadyInterstitial();
+    const meta = sessionDraft._frThisRound;
+    sessionDraft.tests.freeRecall.rounds.push({
+      studySlotSec: meta.studySlotSec,
+      handicapSec: meta.handicapSec,
+      actualStudySec: meta.actualStudySec,
+      score: score,
+      timeUsed: Math.min(90, timeUsed)
+    });
+    sessionDraft.frRound++;
+    beginFRRound(sessionDraft.frRound);
   }
 
   function startPairedStudy() {
     clearTimers();
-    setProgressBar(document.getElementById('pa-prog'), 2);
-    setProgressBar(document.getElementById('pa-prog2'), 2);
+    sessionDraft.tests.pairedAssociates = { rounds: [] };
+    sessionDraft.paRound = 0;
+    beginPARound(0);
+  }
+
+  function beginPARound(r) {
+    if (r >= 3) {
+      testIndex = 2;
+      showReadyInterstitial();
+      return;
+    }
+    sessionDraft.paRound = r;
+    const user = sessionDraft.user;
+    const studySlotSec = FR_PA_STUDY_SLOTS[r];
+    const actualStudySec = studySecondsForRound(r, user);
+    sessionDraft._paThisRound = {
+      studySlotSec: studySlotSec,
+      handicapSec: r === 0 ? handicap15Seconds(user) : 0,
+      actualStudySec: actualStudySec
+    };
+    document.getElementById('pa-study-title').textContent = 'Paired associates — Study (' + (r + 1) + '/3)';
+    document.getElementById('pa-study-blurb').textContent =
+      'Same pairs each round. Study for ' + actualStudySec + 's (slot ' + studySlotSec + 's' +
+      (r === 0 ? '; incl. ' + sessionDraft._paThisRound.handicapSec + 's on 15s slot' : '') + ').';
     const el = document.getElementById('pa-pairs');
     el.innerHTML = sessionDraft.paPairs.map(function (p) {
       return '<div>' + p[0].toUpperCase() + ' — ' + p[1].toUpperCase() + '</div>';
     }).join('');
-    let left = 60;
+    let left = actualStudySec;
     document.getElementById('pa-study-timer').textContent = String(left);
     const timer = setInterval(function () {
       left--;
@@ -1063,9 +1207,16 @@
       const avgRt = sessionDraft.paTimes.length
         ? sessionDraft.paTimes.reduce(function (a, b) { return a + b; }, 0) / sessionDraft.paTimes.length
         : 0;
-      sessionDraft.tests.pairedAssociates = { score: totalCorrect, avgResponseTime: Math.round(avgRt * 10) / 10 };
-      testIndex = 2;
-      showReadyInterstitial();
+      const meta = sessionDraft._paThisRound;
+      sessionDraft.tests.pairedAssociates.rounds.push({
+        studySlotSec: meta.studySlotSec,
+        handicapSec: meta.handicapSec,
+        actualStudySec: meta.actualStudySec,
+        score: totalCorrect,
+        avgResponseTime: Math.round(avgRt * 10) / 10
+      });
+      sessionDraft.paRound++;
+      beginPARound(sessionDraft.paRound);
       return;
     }
     runPairedCue();
@@ -1079,9 +1230,16 @@
     }
   });
 
+  document.getElementById('btn-fr-redo').addEventListener('click', function () { testIndex = 0; redoCurrentTest(); });
+  document.getElementById('btn-fr-redo-2').addEventListener('click', function () { testIndex = 0; redoCurrentTest(); });
+  document.getElementById('btn-pa-redo').addEventListener('click', function () { testIndex = 1; redoCurrentTest(); });
+  document.getElementById('btn-pa-redo-2').addEventListener('click', function () { testIndex = 1; redoCurrentTest(); });
+  document.getElementById('btn-ds-redo').addEventListener('click', function () { testIndex = 2; redoCurrentTest(); });
+  document.getElementById('btn-sp-redo').addEventListener('click', function () { testIndex = 3; redoCurrentTest(); });
+  document.getElementById('btn-sp-redo-2').addEventListener('click', function () { testIndex = 3; redoCurrentTest(); });
+
   function startDigitSpan() {
     clearTimers();
-    setProgressBar(document.getElementById('ds-prog'), 3);
     sessionDraft.dsCurrentSpan = 4;
     sessionDraft.dsBestSpan = 0;
     sessionDraft.dsFailuresAtSpan = {};
@@ -1096,32 +1254,16 @@
     const showEl = document.getElementById('ds-digit-show');
     const inp = document.getElementById('ds-input');
     const btn = document.getElementById('ds-submit');
-    inp.classList.add('hidden');
-    btn.classList.add('hidden');
-    msg.textContent = 'Remember the sequence (' + len + ' digits).';
+    msg.textContent = 'Memorize the digits, then type the sequence in order.';
     const digits = [];
     for (let i = 0; i < len; i++) digits.push(Math.floor(Math.random() * 10));
     const expected = digits.join('');
-    let di = 0;
+    showEl.textContent = digits.join(' ');
     showEl.classList.remove('hidden');
-    showEl.textContent = '';
-    showEl.style.fontSize = '2rem';
-
-    function showNext() {
-      if (di >= digits.length) {
-        showEl.classList.add('hidden');
-        msg.textContent = 'Type the sequence in order.';
-        inp.classList.remove('hidden');
-        btn.classList.remove('hidden');
-        inp.value = '';
-        inp.focus();
-        return;
-      }
-      showEl.textContent = String(digits[di]);
-      di++;
-      setTimeout(showNext, 1000);
-    }
-    showNext();
+    inp.classList.remove('hidden');
+    btn.classList.remove('hidden');
+    inp.value = '';
+    inp.focus();
 
     btn.onclick = function () {
       sessionDraft.dsTotalTrials++;
@@ -1156,54 +1298,104 @@
     };
   }
 
+  function buildSpatialPlan() {
+    const minN = 5;
+    const maxN = 12;
+    const n1 = minN + Math.floor(Math.random() * (maxN - minN + 1));
+    const n2 = Math.min(n1 + 2, 36);
+    const n3 = Math.min(n1 + 4, 49);
+    return [
+      { gridSize: 5, targetTiles: Math.min(n1, 25) },
+      { gridSize: 6, targetTiles: n2 },
+      { gridSize: 7, targetTiles: n3 }
+    ];
+  }
+
   function startSpatialStudy() {
     clearTimers();
-    setProgressBar(document.getElementById('sp-prog'), 4);
-    setProgressBar(document.getElementById('sp-prog2'), 4);
+    sessionDraft.spatialPlan = buildSpatialPlan();
+    sessionDraft.spResults = [];
+    sessionDraft.tests.spatialGrid = { rounds: [] };
+    beginSpatialRound(0);
+  }
+
+  function beginSpatialRound(r) {
+    if (r >= 3) {
+      sessionDraft.tests.spatialGrid = { rounds: sessionDraft.spResults.slice() };
+      finishSession();
+      return;
+    }
+    sessionDraft.spRound = r;
+    const cfg = sessionDraft.spatialPlan[r];
+    const size = cfg.gridSize;
+    const k = cfg.targetTiles;
+    const total = size * size;
     const cells = [];
-    for (let i = 0; i < 25; i++) cells.push(i);
-    const picked = shuffle(cells).slice(0, 8);
-    sessionDraft.spPattern = picked.sort(function (a, b) { return a - b; });
+    for (let i = 0; i < total; i++) cells.push(i);
+    const picked = shuffle(cells).slice(0, Math.min(k, total));
+    sessionDraft.spPattern = picked;
+    sessionDraft.spCurrentConfig = cfg;
+
+    document.getElementById('sp-study-title').textContent = 'Spatial grid — Study (' + (r + 1) + '/3)';
+    document.getElementById('sp-study-blurb').textContent =
+      size + '×' + size + ' grid. Memorize up to 30s — use Skip when ready; memorization time is recorded.';
+
     const g = document.getElementById('sp-grid-study');
     g.innerHTML = '';
-    for (let i = 0; i < 25; i++) {
+    g.style.gridTemplateColumns = 'repeat(' + size + ', 1fr)';
+    g.className = 'spatial-grid max-w';
+    for (let i = 0; i < total; i++) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'cell' + (picked.indexOf(i) >= 0 ? ' hl' : '');
       b.disabled = true;
       g.appendChild(b);
     }
-    let left = 30;
-    document.getElementById('sp-study-timer').textContent = String(left);
-    const tm = setInterval(function () {
-      left--;
-      document.getElementById('sp-study-timer').textContent = String(left);
-      if (left <= 0) {
-        clearInterval(tm);
-        startSpatialRecall();
+
+    const studyStart = Date.now();
+    let ended = false;
+    function finishStudyPhase() {
+      if (ended) return;
+      ended = true;
+      if (sessionDraft._spStudyTimer) {
+        clearTimeout(sessionDraft._spStudyTimer);
+        sessionDraft._spStudyTimer = null;
       }
-    }, 1000);
-    timers.push(tm);
+      clearTimers();
+      const elapsedSec = Math.round(((Date.now() - studyStart) / 1000) * 10) / 10;
+      sessionDraft._spStudyTimeSec = Math.min(30, elapsedSec);
+      startSpatialRecall();
+    }
+
+    sessionDraft._spStudyTimer = setTimeout(finishStudyPhase, 30000);
+
+    const skipBtn = document.getElementById('sp-skip-study');
+    skipBtn.onclick = function () {
+      finishStudyPhase();
+    };
+
     showScreen('screen-sp-study');
   }
 
   function startSpatialRecall() {
     const g = document.getElementById('sp-grid-recall');
     g.innerHTML = '';
+    const cfg = sessionDraft.spCurrentConfig;
+    const size = cfg.gridSize;
+    const k = sessionDraft.spPattern.length;
+    const total = size * size;
+    g.style.gridTemplateColumns = 'repeat(' + size + ', 1fr)';
+    g.className = 'spatial-grid max-w';
+
     sessionDraft.spSelected = [];
     const start = Date.now();
-    let elapsed = 0;
-    const timerEl = document.getElementById('sp-recall-timer');
     const doneBtn = document.getElementById('sp-done');
     doneBtn.disabled = true;
 
-    const tick = setInterval(function () {
-      elapsed = Math.round((Date.now() - start) / 1000);
-      timerEl.textContent = String(elapsed);
-    }, 200);
-    timers.push(tick);
+    document.getElementById('sp-recall-blurb').textContent =
+      'Reproduce the pattern (' + size + '×' + size + ').';
 
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < total; i++) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'cell';
@@ -1214,11 +1406,11 @@
         if (pos >= 0) {
           sessionDraft.spSelected.splice(pos, 1);
           b.classList.remove('sel');
-        } else if (sessionDraft.spSelected.length < 8) {
+        } else if (sessionDraft.spSelected.length < k) {
           sessionDraft.spSelected.push(idx);
           b.classList.add('sel');
         }
-        doneBtn.disabled = sessionDraft.spSelected.length !== 8;
+        doneBtn.disabled = sessionDraft.spSelected.length !== k;
       });
       g.appendChild(b);
     }
@@ -1231,9 +1423,15 @@
       for (let i = 0; i < pat.length; i++) {
         if (sel.indexOf(pat[i]) >= 0) match++;
       }
-      const recallTime = Math.round((Date.now() - start) / 1000);
-      sessionDraft.tests.spatialGrid = { score: match, recallTime: recallTime };
-      finishSession();
+      const recallTimeSec = Math.round((Date.now() - start) / 1000);
+      sessionDraft.spResults.push({
+        gridSize: size,
+        targetTiles: k,
+        studyTimeSec: sessionDraft._spStudyTimeSec,
+        score: match,
+        recallTimeSec: recallTimeSec
+      });
+      beginSpatialRound(sessionDraft.spRound + 1);
     };
     showScreen('screen-sp-recall');
   }
