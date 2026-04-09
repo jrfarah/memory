@@ -438,6 +438,17 @@
     return a;
   }
 
+  /** Draw n unique words; reshuffles the global pool when the slice runs out. */
+  function takeWordsFromShuffledPool(drawState, n) {
+    if (!drawState.pool || drawState.idx + n > drawState.pool.length) {
+      drawState.pool = shuffle(WORD_POOL.slice());
+      drawState.idx = 0;
+    }
+    const slice = drawState.pool.slice(drawState.idx, drawState.idx + n);
+    drawState.idx += n;
+    return slice;
+  }
+
   function uuid() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
       const r = Math.random() * 16 | 0;
@@ -982,23 +993,6 @@
 
   function beginTestBattery() {
     testIndex = 0;
-    sessionDraft.poolOrder = shuffle(WORD_POOL);
-    const pool = sessionDraft.poolOrder;
-    sessionDraft.frWords = pool.slice(0, 20);
-    sessionDraft.paPairs = [];
-    const used = new Set(sessionDraft.frWords.map(function (w) { return w.toLowerCase(); }));
-    let idx = 20;
-    for (let i = 0; i < 10; i++) {
-      while (idx < pool.length && used.has(pool[idx].toLowerCase())) idx++;
-      if (idx >= pool.length) break;
-      const w1 = pool[idx++];
-      while (idx < pool.length && used.has(pool[idx].toLowerCase())) idx++;
-      if (idx >= pool.length) break;
-      const w2 = pool[idx++];
-      sessionDraft.paPairs.push([w1, w2]);
-      used.add(w1.toLowerCase());
-      used.add(w2.toLowerCase());
-    }
     showReadyInterstitial();
   }
 
@@ -1014,10 +1008,12 @@
     if (testIndex === 0) {
       sessionDraft.tests.freeRecall = { rounds: [] };
       sessionDraft.frRound = 0;
+      sessionDraft._frWordDraw = { pool: null, idx: 0 };
       beginFRRound(0);
     } else if (testIndex === 1) {
       sessionDraft.tests.pairedAssociates = { rounds: [] };
       sessionDraft.paRound = 0;
+      sessionDraft._paWordDraw = { pool: null, idx: 0 };
       beginPARound(0);
     } else if (testIndex === 2) {
       sessionDraft.tests.digitSpan = null;
@@ -1041,6 +1037,7 @@
     clearTimers();
     sessionDraft.tests.freeRecall = { rounds: [] };
     sessionDraft.frRound = 0;
+    sessionDraft._frWordDraw = { pool: null, idx: 0 };
     beginFRRound(0);
   }
 
@@ -1051,6 +1048,8 @@
       return;
     }
     sessionDraft.frRound = r;
+    if (!sessionDraft._frWordDraw) sessionDraft._frWordDraw = { pool: null, idx: 0 };
+    sessionDraft.frWords = takeWordsFromShuffledPool(sessionDraft._frWordDraw, 20);
     const user = sessionDraft.user;
     const studySlotSec = FR_PA_STUDY_SLOTS[r];
     const actualStudySec = studySecondsForRound(r, user);
@@ -1061,7 +1060,7 @@
     };
     document.getElementById('fr-study-title').textContent = 'Free recall — Study (' + (r + 1) + '/3)';
     document.getElementById('fr-study-blurb').textContent =
-      'Same 20 words each round. Memorize for ' + actualStudySec + 's this round (timing slot ' + studySlotSec + 's' +
+      'New random words this round. Memorize for ' + actualStudySec + 's (timing slot ' + studySlotSec + 's' +
       (r === 0 ? '; + ' + sessionDraft._frThisRound.handicapSec + 's adjustment on the 15s slot' : '') + ').';
     const wc = document.getElementById('fr-words');
     wc.innerHTML = '';
@@ -1129,6 +1128,7 @@
     clearTimers();
     sessionDraft.tests.pairedAssociates = { rounds: [] };
     sessionDraft.paRound = 0;
+    sessionDraft._paWordDraw = { pool: null, idx: 0 };
     beginPARound(0);
   }
 
@@ -1139,6 +1139,12 @@
       return;
     }
     sessionDraft.paRound = r;
+    if (!sessionDraft._paWordDraw) sessionDraft._paWordDraw = { pool: null, idx: 0 };
+    const slice = takeWordsFromShuffledPool(sessionDraft._paWordDraw, 20);
+    sessionDraft.paPairs = [];
+    for (let i = 0; i < 10; i++) {
+      sessionDraft.paPairs.push([slice[i * 2], slice[i * 2 + 1]]);
+    }
     const user = sessionDraft.user;
     const studySlotSec = FR_PA_STUDY_SLOTS[r];
     const actualStudySec = studySecondsForRound(r, user);
@@ -1149,7 +1155,7 @@
     };
     document.getElementById('pa-study-title').textContent = 'Paired associates — Study (' + (r + 1) + '/3)';
     document.getElementById('pa-study-blurb').textContent =
-      'Same pairs each round. Study for ' + actualStudySec + 's (slot ' + studySlotSec + 's' +
+      'New random pairs this round. Study for ' + actualStudySec + 's (slot ' + studySlotSec + 's' +
       (r === 0 ? '; incl. ' + sessionDraft._paThisRound.handicapSec + 's on 15s slot' : '') + ').';
     const el = document.getElementById('pa-pairs');
     el.innerHTML = sessionDraft.paPairs.map(function (p) {
@@ -1254,11 +1260,12 @@
     const showEl = document.getElementById('ds-digit-show');
     const inp = document.getElementById('ds-input');
     const btn = document.getElementById('ds-submit');
-    msg.textContent = 'Memorize the digits, then type the sequence in order.';
+    msg.textContent = 'Digits are random each trial (order is shuffled). Type them left to right as shown.';
     const digits = [];
     for (let i = 0; i < len; i++) digits.push(Math.floor(Math.random() * 10));
-    const expected = digits.join('');
-    showEl.textContent = digits.join(' ');
+    const displayDigits = shuffle(digits);
+    const expected = displayDigits.join('');
+    showEl.textContent = displayDigits.join(' ');
     showEl.classList.remove('hidden');
     inp.classList.remove('hidden');
     btn.classList.remove('hidden');
@@ -1304,11 +1311,12 @@
     const n1 = minN + Math.floor(Math.random() * (maxN - minN + 1));
     const n2 = Math.min(n1 + 2, 36);
     const n3 = Math.min(n1 + 4, 49);
-    return [
+    const rounds = [
       { gridSize: 5, targetTiles: Math.min(n1, 25) },
       { gridSize: 6, targetTiles: n2 },
       { gridSize: 7, targetTiles: n3 }
     ];
+    return shuffle(rounds);
   }
 
   function startSpatialStudy() {
