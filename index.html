@@ -265,7 +265,7 @@
   <!-- Test 3: Digit span -->
   <section id="screen-ds" class="screen">
     <h1>Digit span <span class="muted" id="ds-wave-label" style="font-size:0.85rem;font-weight:400;"></span></h1>
-    <p class="muted" id="ds-msg">Study the digits first. They disappear before you type.</p>
+    <p class="muted" id="ds-msg">Study the digits first; they disappear before you type. Later waves start at a longer span (harder).</p>
     <div id="ds-digit-show" class="timer" style="font-size:1.75rem;letter-spacing:0.15em;"></div>
     <button type="button" class="primary" id="ds-begin-recall">Digits hidden — type now</button>
     <input type="text" id="ds-input" class="hidden" inputmode="numeric" autocomplete="off" placeholder="Type the sequence you memorized" />
@@ -380,16 +380,22 @@
 
   const USER_COLORS = { Joseph: '#7c9cff', Jonathan: '#ff9c7c' };
 
-  const FR_PA_STUDY_SLOTS = [15, 30, 60];
+  /** Per wave: 60s → 30s → 15s (easiest to hardest). Handicap applies on the 15s slot only. */
+  const WAVE_STUDY_SLOTS = [60, 30, 15];
+
+  const DIGIT_SPAN_START_LENGTH_BY_WAVE = [4, 5, 6];
 
   function handicap15Seconds(user) {
     return user === 'Joseph' ? 5 : 10;
   }
 
-  function studySecondsForRound(roundIdx, user) {
-    const base = FR_PA_STUDY_SLOTS[roundIdx];
-    if (roundIdx === 0) return base + handicap15Seconds(user);
-    return base;
+  function actualStudySecondsForSlot(studySlotSec, user) {
+    if (studySlotSec === 15) return studySlotSec + handicap15Seconds(user);
+    return studySlotSec;
+  }
+
+  function handicapSecForSlot(studySlotSec, user) {
+    return studySlotSec === 15 ? handicap15Seconds(user) : 0;
   }
 
   function safeAvg(arr, fn) {
@@ -427,6 +433,7 @@
     return 0;
   }
 
+  /** Composite & digit-span chart: mean of each wave's maxSpan, then /12 → 0–100%. Not a single wave. */
   function digitSpanMeanMax(t) {
     if (t.digitSpan && t.digitSpan.waves && t.digitSpan.waves.length) {
       const vals = t.digitSpan.waves.filter(Boolean);
@@ -618,7 +625,9 @@
   function dsWavesSummary(t) {
     if (t.digitSpan && t.digitSpan.waves && t.digitSpan.waves.length) {
       return t.digitSpan.waves.filter(Boolean).map(function (w) {
-        return 'max ' + w.maxSpan;
+        var s = 'max ' + w.maxSpan;
+        if (w.startingSpan != null) s += ' (from span ' + w.startingSpan + ')';
+        return s;
       }).join(', ');
     }
     if (t.digitSpan && typeof t.digitSpan.maxSpan === 'number') return 'max ' + t.digitSpan.maxSpan;
@@ -1033,7 +1042,7 @@
   function showReadyInterstitial() {
     document.getElementById('ready-title').textContent = 'Ready?';
     document.getElementById('ready-sub').textContent =
-      'Three waves: free recall → paired associates → digit span → spatial (15s / 30s / 60s slots for word tests), then repeat.';
+      'Three waves (easiest → hardest): word tests use 60s → 30s → 15s study slots; each wave is free recall → pairs → digit span → spatial.';
     showScreen('screen-ready');
   }
 
@@ -1079,22 +1088,22 @@
     if (!sessionDraft._frWordDraw) sessionDraft._frWordDraw = { pool: null, idx: 0 };
     sessionDraft.frWords = takeWordsFromShuffledPool(sessionDraft._frWordDraw, 20);
     const user = sessionDraft.user;
-    const studySlotSec = FR_PA_STUDY_SLOTS[w];
-    const actualStudySec = studySecondsForRound(w, user);
+    const studySlotSec = WAVE_STUDY_SLOTS[w];
+    const actualStudySec = actualStudySecondsForSlot(studySlotSec, user);
     sessionDraft._frThisRound = {
       studySlotSec: studySlotSec,
-      handicapSec: w === 0 ? handicap15Seconds(user) : 0,
+      handicapSec: handicapSecForSlot(studySlotSec, user),
       actualStudySec: actualStudySec
     };
     document.getElementById('fr-study-title').textContent = 'Free recall — Wave ' + (w + 1) + '/3 · Study';
     document.getElementById('fr-study-blurb').textContent =
       'New random words. Memorize for ' + actualStudySec + 's (timing slot ' + studySlotSec + 's' +
-      (w === 0 ? '; + ' + sessionDraft._frThisRound.handicapSec + 's adjustment on the 15s slot' : '') + ').';
+      (studySlotSec === 15 ? '; + ' + sessionDraft._frThisRound.handicapSec + 's adjustment on the 15s slot' : '') + ').';
     const wc = document.getElementById('fr-words');
     wc.innerHTML = '';
-    sessionDraft.frWords.forEach(function (w) {
+    sessionDraft.frWords.forEach(function (word) {
       const s = document.createElement('span');
-      s.textContent = w;
+      s.textContent = word;
       wc.appendChild(s);
     });
     let left = actualStudySec;
@@ -1160,17 +1169,17 @@
       sessionDraft.paPairs.push([slice[i * 2], slice[i * 2 + 1]]);
     }
     const user = sessionDraft.user;
-    const studySlotSec = FR_PA_STUDY_SLOTS[w];
-    const actualStudySec = studySecondsForRound(w, user);
+    const studySlotSec = WAVE_STUDY_SLOTS[w];
+    const actualStudySec = actualStudySecondsForSlot(studySlotSec, user);
     sessionDraft._paThisRound = {
       studySlotSec: studySlotSec,
-      handicapSec: w === 0 ? handicap15Seconds(user) : 0,
+      handicapSec: handicapSecForSlot(studySlotSec, user),
       actualStudySec: actualStudySec
     };
     document.getElementById('pa-study-title').textContent = 'Paired associates — Wave ' + (w + 1) + '/3 · Study';
     document.getElementById('pa-study-blurb').textContent =
       'New random pairs. Study for ' + actualStudySec + 's (slot ' + studySlotSec + 's' +
-      (w === 0 ? '; incl. ' + sessionDraft._paThisRound.handicapSec + 's on 15s slot' : '') + ').';
+      (studySlotSec === 15 ? '; incl. ' + sessionDraft._paThisRound.handicapSec + 's on 15s slot' : '') + ').';
     const el = document.getElementById('pa-pairs');
     el.innerHTML = sessionDraft.paPairs.map(function (p) {
       return '<div>' + p[0].toUpperCase() + ' — ' + p[1].toUpperCase() + '</div>';
@@ -1260,7 +1269,8 @@
   function startDigitSpanForWave(w) {
     clearTimers();
     sessionDraft._dsWave = w;
-    sessionDraft.dsCurrentSpan = 4;
+    sessionDraft._dsWaveStartSpan = DIGIT_SPAN_START_LENGTH_BY_WAVE[w] != null ? DIGIT_SPAN_START_LENGTH_BY_WAVE[w] : 4;
+    sessionDraft.dsCurrentSpan = sessionDraft._dsWaveStartSpan;
     sessionDraft.dsBestSpan = 0;
     sessionDraft.dsFailuresAtSpan = {};
     sessionDraft.dsTotalTrials = 0;
@@ -1270,7 +1280,11 @@
 
   function recordDigitSpanWaveComplete(maxSpan, totalTrials) {
     if (!sessionDraft.tests.digitSpan.waves) sessionDraft.tests.digitSpan.waves = [];
-    sessionDraft.tests.digitSpan.waves[sessionDraft._dsWave] = { maxSpan: maxSpan, totalTrials: totalTrials };
+    sessionDraft.tests.digitSpan.waves[sessionDraft._dsWave] = {
+      maxSpan: maxSpan,
+      totalTrials: totalTrials,
+      startingSpan: sessionDraft._dsWaveStartSpan
+    };
     beginSpatialRound(sessionDraft._dsWave);
   }
 
@@ -1333,12 +1347,11 @@
     const n1 = minN + Math.floor(Math.random() * (maxN - minN + 1));
     const n2 = Math.min(n1 + 2, 36);
     const n3 = Math.min(n1 + 4, 49);
-    const rounds = [
+    return [
       { gridSize: 5, targetTiles: Math.min(n1, 25) },
       { gridSize: 6, targetTiles: n2 },
       { gridSize: 7, targetTiles: n3 }
     ];
-    return shuffle(rounds);
   }
 
   function beginSpatialRound(r) {
@@ -1498,10 +1511,11 @@
     const user = sessionDraft.user;
 
     if (id === 'screen-fr-study' || id === 'screen-fr-recall') {
+      const slot = WAVE_STUDY_SLOTS[w];
       const meta = sessionDraft._frThisRound || {
-        studySlotSec: FR_PA_STUDY_SLOTS[w],
-        handicapSec: w === 0 ? handicap15Seconds(user) : 0,
-        actualStudySec: studySecondsForRound(w, user)
+        studySlotSec: slot,
+        handicapSec: handicapSecForSlot(slot, user),
+        actualStudySec: actualStudySecondsForSlot(slot, user)
       };
       sessionDraft.tests.freeRecall.rounds.push({
         studySlotSec: meta.studySlotSec,
@@ -1514,10 +1528,11 @@
       return;
     }
     if (id === 'screen-pa-study' || id === 'screen-pa-test') {
+      const slot = WAVE_STUDY_SLOTS[w];
       const meta = sessionDraft._paThisRound || {
-        studySlotSec: FR_PA_STUDY_SLOTS[w],
-        handicapSec: w === 0 ? handicap15Seconds(user) : 0,
-        actualStudySec: studySecondsForRound(w, user)
+        studySlotSec: slot,
+        handicapSec: handicapSecForSlot(slot, user),
+        actualStudySec: actualStudySecondsForSlot(slot, user)
       };
       sessionDraft.tests.pairedAssociates.rounds.push({
         studySlotSec: meta.studySlotSec,
