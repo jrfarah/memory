@@ -266,6 +266,7 @@
   <section id="screen-ds" class="screen">
     <h1>Digit span <span class="muted" id="ds-wave-label" style="font-size:0.85rem;font-weight:400;"></span></h1>
     <p class="muted" id="ds-msg">Study the digits first; they disappear before you type. Later waves start at a longer span (harder).</p>
+    <div class="timer" id="ds-study-timer" aria-live="polite"></div>
     <div id="ds-digit-show" class="timer" style="font-size:1.75rem;letter-spacing:0.15em;"></div>
     <button type="button" class="primary" id="ds-begin-recall">Digits hidden — type now</button>
     <input type="text" id="ds-input" class="hidden" inputmode="numeric" autocomplete="off" placeholder="Type the sequence you memorized" />
@@ -384,6 +385,7 @@
   const WAVE_STUDY_SLOTS = [60, 30, 15];
 
   const DIGIT_SPAN_START_LENGTH_BY_WAVE = [4, 5, 6];
+  const DIGIT_SPAN_STUDY_SEC_PER_DIGIT = 2;
 
   function handicap15Seconds(user) {
     return user === 'Joseph' ? 5 : 10;
@@ -1338,21 +1340,49 @@
     const len = sessionDraft.dsCurrentSpan;
     const msg = document.getElementById('ds-msg');
     const showEl = document.getElementById('ds-digit-show');
+    const studyTimerEl = document.getElementById('ds-study-timer');
     const inp = document.getElementById('ds-input');
     const btn = document.getElementById('ds-submit');
     const beginBtn = document.getElementById('ds-begin-recall');
-    msg.textContent = 'Study the digits. When you are ready, hide them and type from memory.';
+    const studySecTotal = len * DIGIT_SPAN_STUDY_SEC_PER_DIGIT;
+    msg.textContent =
+      'Memorize the sequence — ' +
+      studySecTotal +
+      's (' +
+      DIGIT_SPAN_STUDY_SEC_PER_DIGIT +
+      's × ' +
+      len +
+      ' digit' +
+      (len === 1 ? '' : 's') +
+      '). Hide digits when ready, or recall starts when the timer hits zero.';
     const digits = [];
     for (let i = 0; i < len; i++) digits.push(Math.floor(Math.random() * 10));
     const displayDigits = shuffle(digits);
     const expected = displayDigits.join('');
     showEl.textContent = displayDigits.join(' ');
     showEl.classList.remove('hidden');
+    studyTimerEl.classList.remove('hidden');
+    studyTimerEl.textContent = String(studySecTotal);
     inp.classList.add('hidden');
     btn.classList.add('hidden');
     beginBtn.classList.remove('hidden');
 
-    beginBtn.onclick = function () {
+    let left = studySecTotal;
+    const tick = setInterval(function () {
+      left--;
+      studyTimerEl.textContent = String(Math.max(0, left));
+      if (left <= 0) {
+        clearInterval(tick);
+        startDigitSpanRecallPhase();
+      }
+    }, 1000);
+    timers.push(tick);
+
+    function startDigitSpanRecallPhase() {
+      if (!inp.classList.contains('hidden')) return;
+      clearTimers();
+      studyTimerEl.textContent = '';
+      studyTimerEl.classList.add('hidden');
       showEl.textContent = '';
       showEl.classList.add('hidden');
       beginBtn.classList.add('hidden');
@@ -1382,6 +1412,10 @@
         }
         runDigitSpanTrial();
       };
+    }
+
+    beginBtn.onclick = function () {
+      startDigitSpanRecallPhase();
     };
   }
 
