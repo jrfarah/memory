@@ -264,8 +264,8 @@
 
   <!-- Test 3: Digit span -->
   <section id="screen-ds" class="screen">
-    <h1>Digit span <span class="muted" id="ds-wave-label" style="font-size:0.85rem;font-weight:400;"></span></h1>
-    <p class="muted" id="ds-msg">Study the digits first; they disappear before you type. Later waves start at a longer span (harder).</p>
+    <h1>Digit span</h1>
+    <p class="muted" id="ds-msg">Study the digits first; they disappear before you type.</p>
     <div class="timer" id="ds-study-timer" aria-live="polite"></div>
     <div id="ds-digit-show" class="timer" style="font-size:1.75rem;letter-spacing:0.15em;"></div>
     <button type="button" class="primary" id="ds-begin-recall">Digits hidden — type now</button>
@@ -435,7 +435,7 @@
     return 0;
   }
 
-  /** Composite & digit-span chart: mean of each wave's maxSpan, then /12 → 0–100%. Not a single wave. */
+  /** Composite & digit-span chart: mean of each stored wave's maxSpan, then /12 → 0–100%. Legacy sessions have three waves; newer sessions store one. */
   function digitSpanMeanMax(t) {
     if (t.digitSpan && t.digitSpan.waves && t.digitSpan.waves.length) {
       const vals = t.digitSpan.waves.filter(Boolean);
@@ -1044,7 +1044,7 @@
   function showReadyInterstitial() {
     document.getElementById('ready-title').textContent = 'Ready?';
     document.getElementById('ready-sub').textContent =
-      'Three waves (easiest → hardest): word tests use 60s → 30s → 15s study slots; each wave is free recall → pairs → digit span → spatial.';
+      'Three waves (easiest → hardest): word tests use 60s → 30s → 15s study slots. Each wave is free recall → pairs → spatial; digit span runs once after the first wave.';
     showScreen('screen-ready');
   }
 
@@ -1144,7 +1144,7 @@
     }
     if (id === 'screen-ds') {
       clearTimers();
-      startDigitSpanForWave(sessionDraft._dsWave);
+      startDigitSpan();
       return;
     }
     if (id === 'screen-sp-study') {
@@ -1290,7 +1290,11 @@
         score: totalCorrect,
         avgResponseTime: Math.round(avgRt * 10) / 10
       });
-      startDigitSpanForWave(sessionDraft.wave);
+      if (sessionDraft.wave === 0) {
+        startDigitSpan();
+      } else {
+        beginSpatialRound(sessionDraft.wave);
+      }
       return;
     }
     runPairedCue();
@@ -1312,10 +1316,12 @@
   document.getElementById('btn-sp-redo').addEventListener('click', redoCurrentSection);
   document.getElementById('btn-sp-redo-2').addEventListener('click', redoCurrentSection);
 
-  function startDigitSpanForWave(w) {
+  /** Single adaptive run per session; results stored at digitSpan.waves[0] for compatibility with legacy three-wave exports. */
+  function startDigitSpan() {
     clearTimers();
-    sessionDraft._dsWave = w;
-    sessionDraft._dsWaveStartSpan = DIGIT_SPAN_START_LENGTH_BY_WAVE[w] != null ? DIGIT_SPAN_START_LENGTH_BY_WAVE[w] : 4;
+    sessionDraft._dsWave = 0;
+    sessionDraft._dsWaveStartSpan =
+      DIGIT_SPAN_START_LENGTH_BY_WAVE[0] != null ? DIGIT_SPAN_START_LENGTH_BY_WAVE[0] : 4;
     sessionDraft.dsCurrentSpan = sessionDraft._dsWaveStartSpan;
     sessionDraft.dsBestSpan = 0;
     sessionDraft.dsFailuresAtSpan = {};
@@ -1331,12 +1337,10 @@
       totalTrials: totalTrials,
       startingSpan: sessionDraft._dsWaveStartSpan
     };
-    beginSpatialRound(sessionDraft._dsWave);
+    beginSpatialRound(0);
   }
 
   function runDigitSpanTrial() {
-    const wv = sessionDraft._dsWave;
-    document.getElementById('ds-wave-label').textContent = '(wave ' + (wv + 1) + '/3)';
     const len = sessionDraft.dsCurrentSpan;
     const msg = document.getElementById('ds-msg');
     const showEl = document.getElementById('ds-digit-show');
@@ -1619,7 +1623,11 @@
         score: 0,
         avgResponseTime: 0
       });
-      startDigitSpanForWave(w);
+      if (w === 0) {
+        startDigitSpan();
+      } else {
+        beginSpatialRound(w);
+      }
       return;
     }
     if (id === 'screen-ds') {
